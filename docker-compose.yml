@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: sh -lc "bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0 -p 3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/rails
+      - bundle-cache:/usr/local/bundle
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    command: sh -lc "npm run dev -- --host 0.0.0.0 --port 5173"
+    depends_on:
+      - backend
+    env_file:
+      - .env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+
+volumes:
+  bundle-cache:
+  frontend-node-modules:
+  postgres-data:

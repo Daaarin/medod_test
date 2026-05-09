@@ -1,0 +1,177 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(41, 98, 255, 0.16), transparent 42%),
+    linear-gradient(180deg, #0d1020 0%, #0b0f17 100%);
+  color: #edf2ff;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  padding: 2rem;
+  border-right: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(5, 10, 20, 0.65);
+  backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.content {
+  padding: 2rem;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.05;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: clamp(1.6rem, 2vw, 2.2rem);
+  margin-bottom: 0.75rem;
+}
+
+h3 {
+  margin-bottom: 0.5rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.74rem;
+  color: #8ea0c8;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-copy {
+  color: #a9b8d4;
+  max-width: 28ch;
+}
+
+.tabs {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tabs a {
+  padding: 0.9rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.tabs a.active {
+  border-color: rgba(103, 179, 255, 0.55);
+  background: linear-gradient(135deg, rgba(41, 98, 255, 0.25), rgba(10, 35, 80, 0.88));
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.hero {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  align-items: start;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.card {
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(11, 15, 23, 0.8);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+}
+
+.stat {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.stat span {
+  color: #8ea0c8;
+  font-size: 0.85rem;
+}
+
+.stat strong {
+  font-size: 1.25rem;
+}
+
+.status {
+  margin-bottom: 0;
+}
+
+.status.ok {
+  color: #7ee787;
+}
+
+.status.error {
+  color: #ff7b72;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
