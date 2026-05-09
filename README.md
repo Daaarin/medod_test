@@ -22,3 +22,12 @@ Things you may want to cover:
 * Deployment instructions
 
 * ...
+
+## Graphify
+
+This repo is set up for Graphify with Codex.
+
+- Repo instructions live in `AGENTS.md`.
+- The initial graph is generated in `graphify-out/`.
+- Rebuild it with `graphify update .` after code changes.
+- Check `graphify-out/GRAPH_REPORT.md` for a compact architecture summary before answering codebase questions.

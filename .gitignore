@@ -28,5 +28,8 @@
 !/tmp/storage/
 !/tmp/storage/.keep
 
+# Graphify generated output.
+/graphify-out/
+
 # Ignore master key for decrypting credentials and more.
 /config/master.key
