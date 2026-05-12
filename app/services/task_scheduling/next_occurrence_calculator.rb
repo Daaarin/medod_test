@@ -25,7 +25,7 @@ module TaskScheduling
 
       case rule.rule_type
       when "every_n_days"
-        next_every_n_days(rule, start_time, search_time)
+        next_every_n_days(rule, zone, search_time)
       when "every_n_months"
         next_every_n_months(rule, start_time, search_time)
       when "every_n_years"
@@ -51,17 +51,19 @@ module TaskScheduling
       scheduled_time
     end
 
-    def next_every_n_days(rule, start_time, search_time)
+    def next_every_n_days(rule, zone, search_time)
       interval = positive_interval(rule.interval_value)
       return nil unless interval
 
-      candidate = start_time
-      while candidate < search_time
-        candidate += interval.days
-        return nil if past_date_end?(candidate, rule.date_end)
-      end
+      candidate_date = rule.date_start + aligned_day_offset(rule.date_start, search_time.to_date, interval)
 
-      past_date_end?(candidate, rule.date_end) ? nil : candidate
+      loop do
+        candidate = zoned_occurrence_time(zone, candidate_date, rule.execution_time)
+        return nil if past_date_end?(candidate, rule.date_end)
+        return candidate if candidate >= search_time
+
+        candidate_date += interval
+      end
     end
 
     def next_every_n_months(rule, start_time, search_time)
@@ -176,8 +178,16 @@ module TaskScheduling
     end
 
     def positive_interval(value)
-      interval = value.presence || 1
-      interval.positive? ? interval : nil
+      return nil if value.blank?
+
+      value.positive? ? value : nil
+    end
+
+    def aligned_day_offset(start_date, search_date, interval)
+      days_since_start = (search_date - start_date).to_i
+      return 0 if days_since_start <= 0
+
+      (days_since_start / interval) * interval
     end
 
     def past_date_end?(candidate, date_end)

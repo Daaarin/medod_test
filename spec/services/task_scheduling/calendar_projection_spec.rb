@@ -3,10 +3,75 @@ require "rails_helper"
 RSpec.describe TaskScheduling::CalendarProjection do
   let(:zone) { ActiveSupport::TimeZone["Europe/Moscow"] }
 
-  it "returns projected entries for every_n_days within the requested range" do
+  it "returns projected entries for every_n_days within the requested range and stops at date_end" do
     task = build_recurring_task(
       rule_type: :every_n_days,
       interval_value: 2,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      date_end: Date.new(2026, 5, 5)
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-05-01 00:00"),
+      range_end: zone.parse("2026-05-10 23:59")
+    )
+
+    expect(projected).to all(satisfy { |time| time.time_zone.name == "Europe/Moscow" })
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2026, 5, 1), Date.new(2026, 5, 3), Date.new(2026, 5, 5) ]
+    )
+  end
+
+  it "returns projected entries for every_n_months within the requested range" do
+    task = build_recurring_task(
+      rule_type: :every_n_months,
+      interval_value: 2,
+      day_of_month: 15,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 1, 1)
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-01-01 00:00"),
+      range_end: zone.parse("2026-05-31 23:59")
+    )
+
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2026, 1, 15), Date.new(2026, 3, 15), Date.new(2026, 5, 15) ]
+    )
+  end
+
+  it "returns projected entries for every_n_years within the requested range" do
+    task = build_recurring_task(
+      rule_type: :every_n_years,
+      interval_value: 1,
+      month_of_year: 2,
+      day_of_month: 29,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2024, 2, 29)
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2024-01-01 00:00"),
+      range_end: zone.parse("2025-03-01 23:59")
+    )
+
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2024, 2, 29), Date.new(2025, 2, 28) ]
+    )
+  end
+
+  it "returns projected entries for even day-of-month parity within the requested range" do
+    task = build_recurring_task(
+      rule_type: :day_of_month_parity,
+      day_of_month_parity: :even,
       execution_time: "10:00",
       timezone: "Europe/Moscow",
       date_start: Date.new(2026, 5, 1)
@@ -18,9 +83,52 @@ RSpec.describe TaskScheduling::CalendarProjection do
       range_end: zone.parse("2026-05-10 23:59")
     )
 
-    expect(projected).to all(satisfy { |time| time.time_zone.name == "Europe/Moscow" })
     expect(projected.map { |time| time.to_date }).to eq(
-      [ Date.new(2026, 5, 1), Date.new(2026, 5, 3), Date.new(2026, 5, 5), Date.new(2026, 5, 7), Date.new(2026, 5, 9) ]
+      [ Date.new(2026, 5, 2), Date.new(2026, 5, 4), Date.new(2026, 5, 6), Date.new(2026, 5, 8), Date.new(2026, 5, 10) ]
+    )
+  end
+
+  it "returns projected entries for odd ISO weekday parity within the requested range" do
+    task = build_recurring_task(
+      rule_type: :weekday_parity,
+      weekday_parity: :odd,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-05-01 00:00"),
+      range_end: zone.parse("2026-05-07 23:59")
+    )
+
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2026, 5, 1), Date.new(2026, 5, 3), Date.new(2026, 5, 4), Date.new(2026, 5, 6) ]
+    )
+  end
+
+  it "keeps every_n_days projections aligned across a spring-forward DST transition" do
+    task = build_recurring_task(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "02:30",
+      timezone: "America/New_York",
+      date_start: Date.new(2026, 3, 7)
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: ActiveSupport::TimeZone["America/New_York"].parse("2026-03-07 00:00"),
+      range_end: ActiveSupport::TimeZone["America/New_York"].parse("2026-03-09 23:59")
+    )
+
+    expect(projected).to eq(
+      [
+        ActiveSupport::TimeZone["America/New_York"].parse("2026-03-07 02:30"),
+        ActiveSupport::TimeZone["America/New_York"].parse("2026-03-08 03:30"),
+        ActiveSupport::TimeZone["America/New_York"].parse("2026-03-09 02:30")
+      ]
     )
   end
 

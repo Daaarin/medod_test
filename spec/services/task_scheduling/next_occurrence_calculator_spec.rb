@@ -31,6 +31,29 @@ RSpec.describe TaskScheduling::NextOccurrenceCalculator do
     expect(result).to eq(zone.parse("2026-05-11 10:00"))
   end
 
+  it "keeps every_n_days aligned across a spring-forward DST transition" do
+    new_york = ActiveSupport::TimeZone["America/New_York"]
+    task = build_recurring_task(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "02:30",
+      timezone: "America/New_York",
+      date_start: Date.new(2026, 3, 7)
+    )
+
+    first = described_class.call(task: task, from_time: new_york.parse("2026-03-07 00:00"))
+    second = described_class.call(task: task, from_time: new_york.parse("2026-03-07 02:31"))
+    third = described_class.call(task: task, from_time: new_york.parse("2026-03-08 03:31"))
+
+    expect([ first, second, third ]).to eq(
+      [
+        new_york.parse("2026-03-07 02:30"),
+        new_york.parse("2026-03-08 03:30"),
+        new_york.parse("2026-03-09 02:30")
+      ]
+    )
+  end
+
   it "finds the next every_n_months occurrence and clamps invalid month days" do
     task = build_recurring_task(
       rule_type: :every_n_months,
