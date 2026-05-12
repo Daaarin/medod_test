@@ -17,7 +17,9 @@ module Tasks
         occurrence.task.with_lock do
           occurrence.lock!
           raise ArgumentError, "occurrence must be planned on an active task" unless occurrence.planned? && occurrence.task.active?
+          raise ArgumentError, "postpone_to must be on or after the scheduled occurrence" if postpone_to.blank? || postpone_to < occurrence.scheduled_at
 
+          previous_next_run_at = occurrence.task.next_run_at
           occurrence.update!(
             status: :postponed,
             postponed_to: postpone_to
@@ -30,7 +32,11 @@ module Tasks
             occurrence: occurrence,
             event_type: :postponed,
             actor_id: actor_id,
-            payload: { postponed_to: postpone_to }
+            payload: {
+              scheduled_at: occurrence.scheduled_at,
+              previous_next_run_at: previous_next_run_at,
+              postponed_to: postpone_to
+            }
           )
 
           occurrence

@@ -15,7 +15,7 @@ module Tasks
       Task.transaction do
         task.with_lock do
           occurrence.lock!
-          raise ArgumentError, "occurrence must be planned on an active task" unless occurrence.planned? && task.active?
+          raise ArgumentError, "occurrence must be planned or postponed on an active task" unless (occurrence.planned? || occurrence.postponed?) && task.active?
 
           executed_at = Time.current
           occurrence.update!(

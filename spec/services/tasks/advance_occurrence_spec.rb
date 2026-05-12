@@ -32,7 +32,7 @@ RSpec.describe Tasks::AdvanceOccurrence do
     expect(task.next_run_at).to eq(Time.zone.parse("2026-05-13 10:00"))
     expect(task.task_occurrences.where(status: :planned).count).to eq(1)
     expect(task.task_occurrences.where(status: :planned).pluck(:scheduled_at)).to eq([ Time.zone.parse("2026-05-13 10:00") ])
-    expect(task.task_events.pluck(:event_type)).to include("executed")
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "executed" ])
   end
 
   it "completes a recurring lineage when there is no next scheduled run" do
@@ -64,7 +64,7 @@ RSpec.describe Tasks::AdvanceOccurrence do
     expect(task.end_reason).to eq("series_completed")
     expect(task.next_run_at).to be_nil
     expect(task.task_occurrences.where(status: :planned)).to be_empty
-    expect(task.task_events.pluck(:event_type)).to include("completed")
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "executed", "completed" ])
   end
 
   it "completes a one-time lineage after its single execution" do
@@ -89,7 +89,44 @@ RSpec.describe Tasks::AdvanceOccurrence do
     expect(task.end_reason).to eq("series_completed")
     expect(task.next_run_at).to be_nil
     expect(task.task_occurrences.where(status: :planned)).to be_empty
-    expect(task.task_events.pluck(:event_type)).to include("completed")
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "executed", "completed" ])
+  end
+
+  it "executes a postponed occurrence and creates the next planned occurrence" do
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42
+    )
+    task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+    occurrence = task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-11 10:00"),
+      status: :planned
+    )
+
+    Tasks::PostponeOccurrence.call(
+      occurrence: occurrence,
+      postpone_to: Time.zone.parse("2026-05-12 14:00"),
+      actor_id: 42
+    )
+
+    travel_to(Time.zone.parse("2026-05-12 14:01")) do
+      described_class.call(occurrence: occurrence, actor_id: 42)
+    end
+
+    expect(occurrence.reload.status).to eq("executed")
+    expect(occurrence.actual_at).to be_present
+    expect(task.reload.status).to eq("ongoing")
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-13 10:00"))
+    expect(task.task_occurrences.where(status: :planned).pluck(:scheduled_at)).to eq([ Time.zone.parse("2026-05-13 10:00") ])
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "postponed", "executed" ])
   end
 
   it "rejects non-planned occurrences before mutating" do
@@ -106,7 +143,7 @@ RSpec.describe Tasks::AdvanceOccurrence do
 
     expect do
       described_class.call(occurrence: occurrence, actor_id: 42)
-    end.to raise_error(ArgumentError, "occurrence must be planned on an active task")
+    end.to raise_error(ArgumentError, "occurrence must be planned or postponed on an active task")
 
     expect(occurrence.reload.status).to eq("executed")
     expect(task.reload.status).to eq("ongoing")
@@ -129,10 +166,43 @@ RSpec.describe Tasks::AdvanceOccurrence do
 
     expect do
       described_class.call(occurrence: occurrence, actor_id: 42)
-    end.to raise_error(ArgumentError, "occurrence must be planned on an active task")
+    end.to raise_error(ArgumentError, "occurrence must be planned or postponed on an active task")
 
     expect(occurrence.reload.status).to eq("planned")
     expect(task.reload.status).to eq("cancelled")
     expect(task.task_events).to be_empty
+  end
+
+  it "rolls back all mutations when audit appending fails" do
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42
+    )
+    task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 2,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+    occurrence = task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-11 10:00"),
+      status: :planned
+    )
+
+    allow(Tasks::AppendEvent).to receive(:call).and_raise(StandardError, "boom")
+
+    expect do
+      described_class.call(occurrence: occurrence, actor_id: 42)
+    end.to raise_error(StandardError, "boom")
+
+    expect(occurrence.reload.status).to eq("planned")
+    expect(occurrence.actual_at).to be_nil
+    expect(task.reload.status).to eq("ongoing")
+    expect(task.next_run_at).to be_nil
+    expect(task.task_events).to be_empty
+    expect(task.task_occurrences.where(status: :planned).pluck(:scheduled_at)).to eq([ Time.zone.parse("2026-05-11 10:00") ])
   end
 end
