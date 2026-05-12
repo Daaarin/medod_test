@@ -14,22 +14,27 @@ module Tasks
 
     def call
       Task.transaction do
-        occurrence.update!(
-          status: :postponed,
-          postponed_to: postpone_to
-        )
+        occurrence.task.with_lock do
+          occurrence.lock!
+          raise ArgumentError, "occurrence must be planned on an active task" unless occurrence.planned? && occurrence.task.active?
 
-        occurrence.task.update!(next_run_at: postpone_to)
+          occurrence.update!(
+            status: :postponed,
+            postponed_to: postpone_to
+          )
 
-        Tasks::AppendEvent.call(
-          task: occurrence.task,
-          occurrence: occurrence,
-          event_type: :postponed,
-          actor_id: actor_id,
-          payload: { postponed_to: postpone_to }
-        )
+          occurrence.task.update!(next_run_at: postpone_to)
 
-        occurrence
+          Tasks::AppendEvent.call(
+            task: occurrence.task,
+            occurrence: occurrence,
+            event_type: :postponed,
+            actor_id: actor_id,
+            payload: { postponed_to: postpone_to }
+          )
+
+          occurrence
+        end
       end
     end
 

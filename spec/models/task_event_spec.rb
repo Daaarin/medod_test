@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe TaskEvent, type: :model do
   it "exposes append-only event history and persists payload data" do
-    expect(described_class.event_types.keys).to include("created")
+    expect(described_class.event_types.keys).to include("created", "split")
 
     task = Task.create!(
       task_kind: :one_time,

@@ -13,43 +13,48 @@ module Tasks
 
     def call
       Task.transaction do
-        executed_at = Time.current
-        occurrence.update!(
-          status: :executed,
-          actual_at: executed_at
-        )
+        task.with_lock do
+          occurrence.lock!
+          raise ArgumentError, "occurrence must be planned on an active task" unless occurrence.planned? && task.active?
 
-        Tasks::AppendEvent.call(
-          task: task,
-          occurrence: occurrence,
-          event_type: :executed,
-          actor_id: actor_id,
-          payload: {
-            scheduled_at: occurrence.scheduled_at,
+          executed_at = Time.current
+          occurrence.update!(
+            status: :executed,
             actual_at: executed_at
-          }
-        )
-
-        if task.one_time?
-          complete_lineage(occurrence:, executed_at:)
-          return task
-        end
-
-        next_run_at = next_occurrence_after(executed_at)
-
-        if next_run_at.nil?
-          complete_lineage(occurrence:, executed_at:)
-        else
-          task.task_occurrences.create!(
-            scheduled_at: next_run_at,
-            status: :planned,
-            generated_at: executed_at
           )
 
-          task.update!(next_run_at: next_run_at)
-        end
+          Tasks::AppendEvent.call(
+            task: task,
+            occurrence: occurrence,
+            event_type: :executed,
+            actor_id: actor_id,
+            payload: {
+              scheduled_at: occurrence.scheduled_at,
+              actual_at: executed_at
+            }
+          )
 
-        task
+          if task.one_time?
+            complete_lineage(occurrence:, executed_at:)
+            return task
+          end
+
+          next_run_at = next_occurrence_after(executed_at)
+
+          if next_run_at.nil?
+            complete_lineage(occurrence:, executed_at:)
+          else
+            task.task_occurrences.create!(
+              scheduled_at: next_run_at,
+              status: :planned,
+              generated_at: executed_at
+            )
+
+            task.update!(next_run_at: next_run_at)
+          end
+
+          task
+        end
       end
     end
 
