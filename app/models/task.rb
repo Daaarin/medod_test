@@ -42,22 +42,22 @@ class Task < ApplicationRecord
 
   private
 
-  def end_reason_required_for_final_tasks
-    return unless final? && end_reason.blank?
+    def end_reason_required_for_final_tasks
+      return unless final? && end_reason.blank?
 
-    errors.add(:end_reason, "must be present for final tasks")
-  end
+      errors.add(:end_reason, "must be present for final tasks")
+    end
 
-  def one_time_tasks_must_not_have_recurrence_rule
-    return unless one_time? && recurrence_rule.present?
+    def one_time_tasks_must_not_have_recurrence_rule
+      return unless one_time? && recurrence_rule.present?
 
-    errors.add(:recurrence_rule, "must be absent for one-time tasks")
-  end
+      errors.add(:recurrence_rule, "must be absent for one-time tasks")
+    end
 
-  def prevent_mutation_when_final
-    return unless final?
+    def prevent_mutation_when_final
+      return unless final?
 
-    errors.add(:base, "final tasks are immutable")
-    throw :abort
-  end
+      errors.add(:base, "final tasks are immutable")
+      throw :abort
+    end
 end

@@ -21,14 +21,14 @@ class TaskEvent < ApplicationRecord
 
   private
 
-  def occurrence_must_belong_to_task
-    return unless occurrence && occurrence.task_id != task_id
+    def occurrence_must_belong_to_task
+      return unless occurrence && occurrence.task_id != task_id
 
-    errors.add(:occurrence, "must belong to the same task")
-  end
+      errors.add(:occurrence, "must belong to the same task")
+    end
 
-  def prevent_mutation
-    errors.add(:base, "task events are append-only")
-    throw :abort
-  end
+    def prevent_mutation
+      errors.add(:base, "task events are append-only")
+      throw :abort
+    end
 end

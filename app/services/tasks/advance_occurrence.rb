@@ -60,33 +60,33 @@ module Tasks
 
     private
 
-    attr_reader :occurrence, :actor_id
+      attr_reader :occurrence, :actor_id
 
-    def task
-      occurrence.task
-    end
+      def task
+        occurrence.task
+      end
 
-    def next_occurrence_after(executed_at)
-      cursor = [ executed_at, occurrence.scheduled_at ].compact.max + 1.second
-      TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: cursor)
-    end
+      def next_occurrence_after(executed_at)
+        cursor = [ executed_at, occurrence.scheduled_at ].compact.max + 1.second
+        TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: cursor)
+      end
 
-    def complete_lineage(occurrence:, executed_at:)
-      task.update_columns(
-        status: Task.statuses.fetch("completed"),
-        end_reason: Task.end_reasons.fetch("series_completed"),
-        completed_at: executed_at,
-        next_run_at: nil,
-        updated_at: executed_at
-      )
+      def complete_lineage(occurrence:, executed_at:)
+        task.update_columns(
+          status: Task.statuses.fetch("completed"),
+          end_reason: Task.end_reasons.fetch("series_completed"),
+          completed_at: executed_at,
+          next_run_at: nil,
+          updated_at: executed_at
+        )
 
-      Tasks::AppendEvent.call(
-        task: task,
-        occurrence: occurrence,
-        event_type: :completed,
-        actor_id: actor_id,
-        payload: { end_reason: :series_completed }
-      )
-    end
+        Tasks::AppendEvent.call(
+          task: task,
+          occurrence: occurrence,
+          event_type: :completed,
+          actor_id: actor_id,
+          payload: { end_reason: :series_completed }
+        )
+      end
   end
 end

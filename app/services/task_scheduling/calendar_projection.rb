@@ -24,45 +24,45 @@ module TaskScheduling
 
     private
 
-    attr_reader :task, :range_start, :range_end
+      attr_reader :task, :range_start, :range_end
 
-    def projected_one_time_occurrence
-      scheduled_time = task.next_run_at || task.first_run_at
-      return [] unless scheduled_time
-      return [] unless within_range?(scheduled_time, range_start, range_end)
+      def projected_one_time_occurrence
+        scheduled_time = task.next_run_at || task.first_run_at
+        return [] unless scheduled_time
+        return [] unless within_range?(scheduled_time, range_start, range_end)
 
-      [ scheduled_time ]
-    end
-
-    def projected_recurrence
-      zone = recurrence_zone
-      return [] unless zone
-
-      projected = []
-      cursor = range_start.in_time_zone(zone)
-      range_end_in_zone = range_end.in_time_zone(zone)
-
-      loop do
-        occurrence = TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: cursor)
-        break unless occurrence
-        break if occurrence > range_end_in_zone
-
-        projected << occurrence
-        cursor = occurrence + 1.second
+        [ scheduled_time ]
       end
 
-      projected
-    end
+      def projected_recurrence
+        zone = recurrence_zone
+        return [] unless zone
 
-    def recurrence_zone
-      rule = task.recurrence_rule
-      return nil unless rule
+        projected = []
+        cursor = range_start.in_time_zone(zone)
+        range_end_in_zone = range_end.in_time_zone(zone)
 
-      ActiveSupport::TimeZone[rule.timezone]
-    end
+        loop do
+          occurrence = TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: cursor)
+          break unless occurrence
+          break if occurrence > range_end_in_zone
 
-    def within_range?(time, start_time, end_time)
-      time >= start_time && time <= end_time
-    end
+          projected << occurrence
+          cursor = occurrence + 1.second
+        end
+
+        projected
+      end
+
+      def recurrence_zone
+        rule = task.recurrence_rule
+        return nil unless rule
+
+        ActiveSupport::TimeZone[rule.timezone]
+      end
+
+      def within_range?(time, start_time, end_time)
+        time >= start_time && time <= end_time
+      end
   end
 end

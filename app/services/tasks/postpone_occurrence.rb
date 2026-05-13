@@ -46,6 +46,6 @@ module Tasks
 
     private
 
-    attr_reader :occurrence, :postpone_to, :actor_id
+      attr_reader :occurrence, :postpone_to, :actor_id
   end
 end

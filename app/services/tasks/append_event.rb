@@ -27,6 +27,6 @@ module Tasks
 
     private
 
-    attr_reader :task, :event_type, :actor_id, :occurrence, :payload
+      attr_reader :task, :event_type, :actor_id, :occurrence, :payload
   end
 end

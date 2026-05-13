@@ -15,9 +15,9 @@ class TaskOccurrence < ApplicationRecord
 
   private
 
-  def task_may_have_only_one_planned_occurrence
-    return unless task_id.present? && self.class.where(task_id: task_id, status: :planned).where.not(id: id).exists?
+    def task_may_have_only_one_planned_occurrence
+      return unless task_id.present? && self.class.where(task_id: task_id, status: :planned).where.not(id: id).exists?
 
-    errors.add(:task_id, "already has a planned occurrence")
-  end
+      errors.add(:task_id, "already has a planned occurrence")
+    end
 end
