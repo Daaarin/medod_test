@@ -54,3 +54,11 @@ Before starting the stack, copy the template:
 ```bash
 cp .env.example .env
 ```
+
+## Dev Container
+
+Open the repository in VS Code with Dev Containers to launch the same backend, frontend, and PostgreSQL stack inside Docker.
+
+- The container configuration lives in [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json).
+- On first launch, the devcontainer copies `.env.example` to `.env` if needed.
+- The backend service is the workspace container; the frontend and database services start alongside it.
