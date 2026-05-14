@@ -43,6 +43,37 @@ RSpec.describe Task, type: :model do
     expect(task.errors[:base]).to include("final tasks are immutable")
   end
 
+  it "allows active tasks to transition into final states through the model API" do
+    completed_task = described_class.create!(
+      task_kind: :one_time,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42
+    )
+    completed_at = Time.zone.parse("2026-05-12 10:00")
+
+    expect do
+      completed_task.update!(
+        status: :completed,
+        end_reason: :series_completed,
+        completed_at: completed_at,
+        next_run_at: nil
+      )
+    end.to change { completed_task.reload.status }.from("ongoing").to("completed")
+    expect(completed_task.completed_at).to eq(completed_at)
+
+    cancelled_task = described_class.create!(
+      task_kind: :one_time,
+      status: :ongoing,
+      title: "Send email",
+      responsible_id: 42
+    )
+
+    expect { cancelled_task.retire!(end_reason: :manual_cancelled) }
+      .to change { cancelled_task.reload.status }.from("ongoing").to("cancelled")
+    expect(cancelled_task.end_reason).to eq("manual_cancelled")
+  end
+
   it "forbids recurrence rules on one-time tasks" do
     task = described_class.new(
       task_kind: :one_time,

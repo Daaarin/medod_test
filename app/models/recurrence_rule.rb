@@ -16,6 +16,7 @@ class RecurrenceRule < ApplicationRecord
   validate :rule_specific_requirements
   validate :timezone_must_be_known
   validate :date_window_is_ordered
+  validate :task_must_be_recurring
 
   private
 
@@ -44,5 +45,11 @@ class RecurrenceRule < ApplicationRecord
       return if date_start.blank? || date_end.blank? || date_end >= date_start
 
       errors.add(:date_end, "must be on or after date_start")
+    end
+
+    def task_must_be_recurring
+      return if task.blank? || task.recurring?
+
+      errors.add(:task, "must be recurring")
     end
 end

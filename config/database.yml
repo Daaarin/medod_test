@@ -35,9 +35,9 @@ test:
   <<: *default
   database: <%= ENV.fetch("DATABASE_TEST_NAME", "medods_test_api_test") %>
   host: <%= ENV.fetch("DATABASE_HOST", "127.0.0.1") %>
-  password: <%= ENV.fetch("DATABASE_PASSWORD", "postgres") %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD", nil) %>
   port: <%= ENV.fetch("DATABASE_PORT", 5432) %>
-  username: <%= ENV.fetch("DATABASE_USERNAME", "postgres") %>
+  username: <%= ENV.fetch("DATABASE_USERNAME", ENV.fetch("USER", "postgres")) %>
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is

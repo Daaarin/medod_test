@@ -55,9 +55,13 @@ class Task < ApplicationRecord
     end
 
     def prevent_mutation_when_final
-      return unless final?
+      return unless persisted_final?
 
       errors.add(:base, "final tasks are immutable")
       throw :abort
+    end
+
+    def persisted_final?
+      status_in_database.in?(%w[completed cancelled])
     end
 end

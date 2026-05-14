@@ -287,4 +287,47 @@ RSpec.describe Tasks::SplitLineage do
       described_class.call(task: parent, end_reason: :responsible_changed, responsible_id: 77, actor_id: 99)
     end.to raise_error(ArgumentError, "task must be active")
   end
+
+  it "rejects end reasons that do not structurally replace the task" do
+    parent = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42
+    )
+
+    expect do
+      described_class.call(task: parent, end_reason: :manual_cancelled, actor_id: 99)
+    end.to raise_error(ArgumentError, "end_reason must be responsible_changed or schedule_changed")
+
+    expect(parent.reload.status).to eq("ongoing")
+    expect(Task.where(parent_task_id: parent.id)).to be_empty
+    expect(parent.task_events).to be_empty
+  end
+
+  it "requires a replacement responsible for responsible changes" do
+    parent = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42
+    )
+
+    expect do
+      described_class.call(task: parent, end_reason: :responsible_changed, actor_id: 99)
+    end.to raise_error(ArgumentError, "responsible_id is required for responsible_changed")
+  end
+
+  it "requires replacement recurrence attributes for schedule changes" do
+    parent = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42
+    )
+
+    expect do
+      described_class.call(task: parent, end_reason: :schedule_changed, actor_id: 99)
+    end.to raise_error(ArgumentError, "recurrence_rule_attributes are required for schedule_changed")
+  end
 end

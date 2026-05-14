@@ -44,6 +44,25 @@ RSpec.describe RecurrenceRule, type: :model do
     expect(rule.errors[:timezone]).to include("is not a valid time zone")
   end
 
+  it "rejects rules attached directly to one-time tasks" do
+    task = Task.create!(
+      task_kind: :one_time,
+      status: :ongoing,
+      title: "Send email",
+      responsible_id: 42
+    )
+    rule = task.build_recurrence_rule(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+
+    expect(rule).not_to be_valid
+    expect(rule.errors[:task]).to include("must be recurring")
+  end
+
   it "requires positive intervals for interval-based rules" do
     task = Task.create!(
       task_kind: :recurring,

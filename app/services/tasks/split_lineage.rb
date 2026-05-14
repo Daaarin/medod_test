@@ -1,5 +1,7 @@
 module Tasks
   class SplitLineage
+    ALLOWED_END_REASONS = %w[responsible_changed schedule_changed].freeze
+
     class << self
       def call(task:, end_reason:, responsible_id: nil, recurrence_rule_attributes: nil, actor_id: nil)
         new(
@@ -24,6 +26,7 @@ module Tasks
       Task.transaction do
         task.with_lock do
           raise ArgumentError, "task must be active" unless task.active?
+          validate_transition_inputs!
 
           child = build_child_task
           child.save!
@@ -59,6 +62,21 @@ module Tasks
         copy_recurrence_rule(child)
 
         child
+      end
+
+      def validate_transition_inputs!
+        reason = end_reason.to_s
+        unless reason.in?(ALLOWED_END_REASONS)
+          raise ArgumentError, "end_reason must be responsible_changed or schedule_changed"
+        end
+
+        if reason == "responsible_changed" && responsible_id.blank?
+          raise ArgumentError, "responsible_id is required for responsible_changed"
+        end
+
+        if reason == "schedule_changed" && recurrence_rule_attributes.blank?
+          raise ArgumentError, "recurrence_rule_attributes are required for schedule_changed"
+        end
       end
 
       def reconcile_current_occurrence!(child)
@@ -191,12 +209,11 @@ module Tasks
 
       def finalize_parent!
         timestamp = Time.current
-        task.update_columns(
-          status: Task.statuses.fetch("cancelled"),
-          end_reason: Task.end_reasons.fetch(end_reason.to_s),
+        task.update!(
+          status: :cancelled,
+          end_reason: end_reason,
           cancelled_at: timestamp,
-          next_run_at: nil,
-          updated_at: timestamp
+          next_run_at: nil
         )
       end
 

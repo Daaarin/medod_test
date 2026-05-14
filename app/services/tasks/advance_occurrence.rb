@@ -72,12 +72,11 @@ module Tasks
       end
 
       def complete_lineage(occurrence:, executed_at:)
-        task.update_columns(
-          status: Task.statuses.fetch("completed"),
-          end_reason: Task.end_reasons.fetch("series_completed"),
+        task.update!(
+          status: :completed,
+          end_reason: :series_completed,
           completed_at: executed_at,
-          next_run_at: nil,
-          updated_at: executed_at
+          next_run_at: nil
         )
 
         Tasks::AppendEvent.call(

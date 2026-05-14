@@ -132,6 +132,42 @@ RSpec.describe TaskScheduling::CalendarProjection do
     )
   end
 
+  it "projects postponed persisted occurrences before future generated recurrence entries" do
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      title: "Check email",
+      responsible_id: 42,
+      first_run_at: zone.parse("2026-05-11 10:00"),
+      next_run_at: zone.parse("2026-05-12 14:00")
+    )
+    task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 11)
+    )
+    task.task_occurrences.create!(
+      scheduled_at: zone.parse("2026-05-11 10:00"),
+      status: :postponed,
+      postponed_to: zone.parse("2026-05-12 14:00")
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-05-11 00:00"),
+      range_end: zone.parse("2026-05-13 23:59")
+    )
+
+    expect(projected).to eq(
+      [
+        zone.parse("2026-05-12 14:00"),
+        zone.parse("2026-05-13 10:00")
+      ]
+    )
+  end
+
   it "returns only the one-time task occurrence when it falls in range" do
     task = Task.new(
       task_kind: :one_time,

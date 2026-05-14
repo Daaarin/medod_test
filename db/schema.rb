@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_12_000004) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_14_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -61,7 +61,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_12_000004) do
     t.datetime "updated_at", null: false
     t.index ["task_id", "status"], name: "index_task_occurrences_on_task_id_and_status"
     t.index ["task_id"], name: "index_task_occurrences_on_task_id"
-    t.index ["task_id"], name: "index_task_occurrences_on_task_id_when_planned", unique: true, where: "((status)::text = 'planned'::text)"
+    t.index ["task_id"], name: "index_task_occurrences_on_task_id_when_current", unique: true, where: "((status)::text = ANY ((ARRAY['planned'::character varying, 'postponed'::character varying])::text[]))"
   end
 
   create_table "tasks", force: :cascade do |t|

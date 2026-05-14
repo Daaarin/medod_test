@@ -1,4 +1,6 @@
 class TaskOccurrence < ApplicationRecord
+  CURRENT_STATUSES = %w[planned postponed].freeze
+
   belongs_to :task, inverse_of: :task_occurrences
 
   enum :status, {
@@ -11,13 +13,17 @@ class TaskOccurrence < ApplicationRecord
   }, validate: true
 
   validates :scheduled_at, :status, presence: true
-  validate :task_may_have_only_one_planned_occurrence, if: :planned?
+  validate :task_may_have_only_one_current_occurrence, if: :current_occurrence?
 
   private
 
-    def task_may_have_only_one_planned_occurrence
-      return unless task_id.present? && self.class.where(task_id: task_id, status: :planned).where.not(id: id).exists?
+    def current_occurrence?
+      status.in?(CURRENT_STATUSES)
+    end
 
-      errors.add(:task_id, "already has a planned occurrence")
+    def task_may_have_only_one_current_occurrence
+      return unless task_id.present? && self.class.where(task_id: task_id, status: CURRENT_STATUSES).where.not(id: id).exists?
+
+      errors.add(:task_id, "already has a current occurrence")
     end
 end

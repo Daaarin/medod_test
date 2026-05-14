@@ -38,8 +38,9 @@ module TaskScheduling
         zone = recurrence_zone
         return [] unless zone
 
-        projected = []
-        cursor = range_start.in_time_zone(zone)
+        current_times = persisted_current_occurrence_times
+        projected = current_times.select { |time| within_range?(time, range_start, range_end) }
+        cursor = recurrence_cursor(zone, current_times)
         range_end_in_zone = range_end.in_time_zone(zone)
 
         loop do
@@ -52,6 +53,25 @@ module TaskScheduling
         end
 
         projected
+      end
+
+      def persisted_current_occurrence_times
+        task.task_occurrences
+          .where(status: [ :planned, :postponed ])
+          .order(:scheduled_at, :id)
+          .filter_map { |occurrence| actionable_time(occurrence) }
+      end
+
+      def actionable_time(occurrence)
+        return occurrence.postponed_to || occurrence.scheduled_at if occurrence.postponed?
+
+        occurrence.scheduled_at
+      end
+
+      def recurrence_cursor(zone, current_times)
+        boundary = current_times.max
+        cursor = boundary ? [ range_start, boundary + 1.second ].max : range_start
+        cursor.in_time_zone(zone)
       end
 
       def recurrence_zone
