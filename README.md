@@ -49,7 +49,7 @@ docker compose up --build
 
 The frontend talks to the Rails API at `http://localhost:3000`, and the `/up` route is documented with Rswag as a starter endpoint.
 
-Before starting the stack, copy the template:
+The stack requires a local `.env` file. Copy the template before starting Docker or opening the Dev Container:
 
 ```bash
 cp .env.example .env
@@ -60,5 +60,5 @@ cp .env.example .env
 Open the repository in VS Code with Dev Containers to launch the same backend, frontend, and PostgreSQL stack inside Docker.
 
 - The container configuration lives in [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json).
-- On first launch, the devcontainer copies `.env.example` to `.env` if needed.
+- Create `.env` first, or the Compose-backed Dev Container will fail fast when it starts.
 - The backend service is the workspace container; the frontend and database services start alongside it.

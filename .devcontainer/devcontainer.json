@@ -6,7 +6,6 @@
   "workspaceFolder": "/rails",
   "shutdownAction": "stopCompose",
   "overrideCommand": false,
-  "initializeCommand": "bash -lc 'if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi'",
   "forwardPorts": [3000, 5173],
   "portsAttributes": {
     "3000": {

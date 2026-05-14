@@ -13,3 +13,6 @@ Format for entries:
 - `2026-05-09` - Fixed the Docker dev image build failure by adding `libyaml-dev` and `pkg-config` so Ruby's `psych` native extension can compile during `bundle install`.
 - `2026-05-09` - Verified the backend container builds successfully after the Dockerfile.dev fix.
 - `2026-05-14` - Added a compose-backed VS Code devcontainer for the existing backend/frontend/PostgreSQL stack; it bootstraps `.env` from `.env.example` on first launch and reuses the current Docker Compose services.
+- `2026-05-14` - Removed the machine-specific Ruby SDK entry from `.idea/medods_test_api.iml` after review feedback so the shared JetBrains module file no longer points at `/usr/local/bin/ruby`.
+- `2026-05-14` - Removed the host-side devcontainer bootstrap shell command and switched Compose to use `.env.example` directly so the devcontainer no longer depends on Bash being present on the developer host.
+- `2026-05-14` - Reverted the Compose env-file fallback to `.env.example`; the stack now requires a local `.env` again and fails fast if it is missing.
