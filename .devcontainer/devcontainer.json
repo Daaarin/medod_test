@@ -1,0 +1,27 @@
+{
+  "name": "medods_test_api",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "backend",
+  "runServices": ["db", "frontend"],
+  "workspaceFolder": "/rails",
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "forwardPorts": [3000, 5173],
+  "portsAttributes": {
+    "3000": {
+      "label": "Rails API"
+    },
+    "5173": {
+      "label": "Vite frontend"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "Shopify.ruby-lsp",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}
