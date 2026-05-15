@@ -15,10 +15,18 @@ class TaskOccurrence < ApplicationRecord
   validates :scheduled_at, :status, presence: true
   validate :task_may_have_only_one_current_occurrence, if: :current_occurrence?
 
+  def current?
+    planned? || postponed?
+  end
+
+  def actionable_time
+    postponed_to || scheduled_at
+  end
+
   private
 
     def current_occurrence?
-      status.in?(CURRENT_STATUSES)
+      current?
     end
 
     def task_may_have_only_one_current_occurrence

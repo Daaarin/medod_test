@@ -34,6 +34,8 @@ module TaskScheduling
           next_day_of_month_parity(rule, zone, search_time)
         when "weekday_parity"
           next_weekday_parity(rule, zone, search_time)
+        when "specific_dates"
+          next_specific_dates(rule, zone, search_time)
         else
           nil
       end
@@ -131,6 +133,17 @@ module TaskScheduling
         end
       end
 
+      def next_specific_dates(rule, zone, search_time)
+        specific_dates_for(rule).each do |recurrence_rule_date|
+          next unless specific_date_within_window?(rule, recurrence_rule_date.run_date)
+
+          candidate = zoned_occurrence_time(zone, recurrence_rule_date.run_date, rule.execution_time)
+          return candidate if candidate >= search_time
+        end
+
+        nil
+      end
+
       def zoned_occurrence_time(zone, date, execution_time)
         zone.local(
           date.year,
@@ -148,12 +161,28 @@ module TaskScheduling
         year = total_months / 12
         month = (total_months % 12) + 1
         day = clamped_day(year, month, chosen_day)
-        zone.local(year, month, day, task.recurrence_rule.execution_time.hour, task.recurrence_rule.execution_time.min, task.recurrence_rule.execution_time.sec, task.recurrence_rule.execution_time.usec)
+        zone.local(
+          year,
+          month,
+          day,
+          task.recurrence_rule.execution_time.hour,
+          task.recurrence_rule.execution_time.min,
+          task.recurrence_rule.execution_time.sec,
+          task.recurrence_rule.execution_time.usec
+        )
       end
 
       def yearly_candidate(year, month, chosen_day, zone)
         day = clamped_day(year, month, chosen_day)
-        zone.local(year, month, day, task.recurrence_rule.execution_time.hour, task.recurrence_rule.execution_time.min, task.recurrence_rule.execution_time.sec, task.recurrence_rule.execution_time.usec)
+        zone.local(
+          year,
+          month,
+          day,
+          task.recurrence_rule.execution_time.hour,
+          task.recurrence_rule.execution_time.min,
+          task.recurrence_rule.execution_time.sec,
+          task.recurrence_rule.execution_time.usec
+        )
       end
 
       def clamped_day(year, month, day)
@@ -192,6 +221,25 @@ module TaskScheduling
 
       def past_date_end?(candidate, date_end)
         date_end.present? && candidate.to_date > date_end
+      end
+
+      def specific_date_within_window?(rule, run_date)
+        return false if run_date < rule.date_start
+        return false if rule.date_end.present? && run_date > rule.date_end
+
+        true
+      end
+
+      def specific_dates_for(rule)
+        rule.recurrence_rule_dates
+          .to_a
+          .sort_by do |recurrence_rule_date|
+            [
+              recurrence_rule_date.run_date,
+              recurrence_rule_date.id || 0,
+              recurrence_rule_date.object_id
+            ]
+          end
       end
   end
 end

@@ -3,16 +3,17 @@ require "rails_helper"
 RSpec.describe RecurrenceRule, type: :model do
   it "exposes the supported recurrence shapes" do
     expect(described_class.rule_types.keys).to match_array(
-      %w[every_n_days every_n_months every_n_years day_of_month_parity weekday_parity]
+      %w[every_n_days every_n_months every_n_years day_of_month_parity weekday_parity specific_dates]
     )
   end
 
   it "accepts parity-based day and weekday selectors" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :day_of_month_parity,
@@ -26,11 +27,12 @@ RSpec.describe RecurrenceRule, type: :model do
   end
 
   it "rejects unsupported time zones" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :every_n_days,
@@ -45,11 +47,12 @@ RSpec.describe RecurrenceRule, type: :model do
   end
 
   it "rejects rules attached directly to one-time tasks" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :one_time,
       status: :ongoing,
-      title: "Send email",
-      responsible_id: 42
+      name: "Send email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :every_n_days,
@@ -64,11 +67,12 @@ RSpec.describe RecurrenceRule, type: :model do
   end
 
   it "requires positive intervals for interval-based rules" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :every_n_days,
@@ -83,11 +87,12 @@ RSpec.describe RecurrenceRule, type: :model do
   end
 
   it "rejects out-of-range calendar selectors" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :day_of_month_parity,
@@ -106,11 +111,12 @@ RSpec.describe RecurrenceRule, type: :model do
   end
 
   it "rejects invalid weekday values" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :weekday_parity,
@@ -126,11 +132,12 @@ RSpec.describe RecurrenceRule, type: :model do
   end
 
   it "rejects inverted date windows" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :every_n_days,
@@ -145,12 +152,103 @@ RSpec.describe RecurrenceRule, type: :model do
     expect(rule.errors[:date_end]).to include("must be on or after date_start")
   end
 
-  it "requires parity selectors for parity-based rules" do
+  it "accepts specific dates when at least one date is present and in range" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
+    )
+    rule = task.build_recurrence_rule(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      date_end: Date.new(2026, 5, 31),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 12) }
+      ]
+    )
+
+    expect(rule).to be_valid
+  end
+
+  it "rejects specific dates without any recurrence_rule_date entries" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible
+    )
+    rule = task.build_recurrence_rule(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+
+    expect(rule).not_to be_valid
+    expect(rule.errors[:recurrence_rule_dates]).to include("must include at least one date")
+  end
+
+  it "rejects specific dates outside the recurrence window" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible
+    )
+    rule = task.build_recurrence_rule(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 10),
+      date_end: Date.new(2026, 5, 20),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 9) },
+        { run_date: Date.new(2026, 5, 21) }
+      ]
+    )
+
+    expect(rule).not_to be_valid
+    expect(rule.recurrence_rule_dates.first.errors[:run_date]).to include("must be on or after date_start")
+    expect(rule.recurrence_rule_dates.second.errors[:run_date]).to include("must be on or before date_end")
+  end
+
+  it "rejects duplicate nested specific dates before persistence" do
+    responsible = build_user(email: "responsible-specific-duplicates@example.test", role: :doctor)
+    task = Task.new(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible
+    )
+    rule = task.build_recurrence_rule(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 12) },
+        { run_date: Date.new(2026, 5, 12) }
+      ]
+    )
+
+    expect(rule).not_to be_valid
+    expect(rule.errors[:recurrence_rule_dates]).to include("must not include duplicate dates")
+    expect { rule.save! }.to raise_error(ActiveRecord::RecordInvalid, /duplicate dates/)
+  end
+
+  it "requires parity selectors for parity-based rules" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible
     )
     rule = task.build_recurrence_rule(
       rule_type: :weekday_parity,
@@ -161,5 +259,15 @@ RSpec.describe RecurrenceRule, type: :model do
 
     expect(rule).not_to be_valid
     expect(rule.errors[:weekday_parity]).to include("must be present")
+  end
+
+  def build_user(email:, role:)
+    User.create!(
+      email:,
+      password: "password123",
+      role:,
+      name: "Test",
+      last_name: "User"
+    )
   end
 end

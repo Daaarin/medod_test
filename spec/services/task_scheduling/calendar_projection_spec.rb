@@ -108,6 +108,34 @@ RSpec.describe TaskScheduling::CalendarProjection do
     )
   end
 
+  it "returns projected entries for specific dates within the requested range without creating rows" do
+    task = build_recurring_task(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      date_end: Date.new(2026, 5, 31),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 20) },
+        { run_date: Date.new(2026, 5, 12) },
+        { run_date: Date.new(2026, 5, 15) }
+      ]
+    )
+
+    before_count = task.task_occurrences.count
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-05-01 00:00"),
+      range_end: zone.parse("2026-05-31 23:59")
+    )
+
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2026, 5, 12), Date.new(2026, 5, 15), Date.new(2026, 5, 20) ]
+    )
+    expect(task.task_occurrences.count).to eq(before_count)
+  end
+
   it "keeps every_n_days projections aligned across a spring-forward DST transition" do
     task = build_recurring_task(
       rule_type: :every_n_days,
@@ -133,11 +161,12 @@ RSpec.describe TaskScheduling::CalendarProjection do
   end
 
   it "projects postponed persisted occurrences before future generated recurrence entries" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42,
+      name: "Check email",
+      responsible: responsible,
       first_run_at: zone.parse("2026-05-11 10:00"),
       next_run_at: zone.parse("2026-05-12 14:00")
     )
@@ -169,11 +198,12 @@ RSpec.describe TaskScheduling::CalendarProjection do
   end
 
   it "returns only the one-time task occurrence when it falls in range" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.new(
       task_kind: :one_time,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42,
+      name: "Check email",
+      responsible: responsible,
       next_run_at: zone.parse("2026-05-12 10:00")
     )
 
@@ -205,13 +235,24 @@ RSpec.describe TaskScheduling::CalendarProjection do
   end
 
   def build_recurring_task(**rule_attributes)
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.new(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     task.build_recurrence_rule(rule_attributes)
     task
+  end
+
+  def build_user(email:, role:)
+    User.create!(
+      email:,
+      password: "password123",
+      role:,
+      name: "Test",
+      last_name: "User"
+    )
   end
 end

@@ -4,11 +4,12 @@ RSpec.describe TaskScheduling::NextOccurrenceCalculator do
   let(:zone) { ActiveSupport::TimeZone["Europe/Moscow"] }
 
   it "returns the scheduled time for a one-time task when it is not before the requested time" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.new(
       task_kind: :one_time,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42,
+      name: "Check email",
+      responsible: responsible,
       next_run_at: zone.parse("2026-05-12 10:00")
     )
 
@@ -113,6 +114,42 @@ RSpec.describe TaskScheduling::NextOccurrenceCalculator do
     expect(result).to eq(zone.parse("2026-05-11 10:00"))
   end
 
+  it "finds the next specific date occurrence in run_date order" do
+    task = build_recurring_task(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 20) },
+        { run_date: Date.new(2026, 5, 11) },
+        { run_date: Date.new(2026, 5, 15) }
+      ]
+    )
+
+    result = described_class.call(task: task, from_time: zone.parse("2026-05-01 00:00"))
+
+    expect(result).to eq(zone.parse("2026-05-11 10:00"))
+  end
+
+  it "returns nil after the last specific date occurrence" do
+    task = build_recurring_task(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      date_end: Date.new(2026, 5, 15),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 11) },
+        { run_date: Date.new(2026, 5, 15) }
+      ]
+    )
+
+    result = described_class.call(task: task, from_time: zone.parse("2026-05-16 00:00"))
+
+    expect(result).to be_nil
+  end
+
   it "returns nil after the series is exhausted" do
     task = build_recurring_task(
       rule_type: :every_n_days,
@@ -129,13 +166,24 @@ RSpec.describe TaskScheduling::NextOccurrenceCalculator do
   end
 
   def build_recurring_task(**rule_attributes)
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.new(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     task.build_recurrence_rule(rule_attributes)
     task
+  end
+
+  def build_user(email:, role:)
+    User.create!(
+      email:,
+      password: "password123",
+      role:,
+      name: "Test",
+      last_name: "User"
+    )
   end
 end

@@ -4,11 +4,12 @@ RSpec.describe TaskOccurrence, type: :model do
   it "exposes the planned lifecycle and allows one current future occurrence per task" do
     expect(described_class.statuses.keys).to match_array(%w[planned postponed executed skipped superseded cancelled])
 
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     task.task_occurrences.create!(
       scheduled_at: Time.zone.parse("2026-05-12 10:00"),
@@ -25,11 +26,12 @@ RSpec.describe TaskOccurrence, type: :model do
   end
 
   it "treats planned and postponed occurrences as the same current slot" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
     task.task_occurrences.create!(
       scheduled_at: Time.zone.parse("2026-05-12 10:00"),
@@ -59,5 +61,15 @@ RSpec.describe TaskOccurrence, type: :model do
 
     expect(postponed).not_to be_valid
     expect(postponed.errors[:task_id]).to include("already has a current occurrence")
+  end
+
+  def build_user(email:, role:)
+    User.create!(
+      email:,
+      password: "password123",
+      role:,
+      name: "Test",
+      last_name: "User"
+    )
   end
 end
