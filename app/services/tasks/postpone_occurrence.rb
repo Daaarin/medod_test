@@ -16,7 +16,7 @@ module Tasks
       Task.transaction do
         occurrence.task.with_lock do
           occurrence.lock!
-          raise ArgumentError, "occurrence must be planned on an active task" unless occurrence.planned? && occurrence.task.active?
+          raise ArgumentError, "occurrence must be planned on an active task" unless occurrence.current? && occurrence.planned? && occurrence.task.active?
           raise ArgumentError, "postpone_to must be on or after the scheduled occurrence" if postpone_to.blank? || postpone_to < occurrence.scheduled_at
 
           previous_next_run_at = occurrence.task.next_run_at

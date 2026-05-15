@@ -4,12 +4,14 @@ RSpec.describe Tasks::SplitLineage do
   include ActiveSupport::Testing::TimeHelpers
 
   it "retires the parent, appends split history, and clones the planned occurrence to the child on responsible changes" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
+    new_responsible = build_user(email: "new-responsible@example.test", role: :nurse)
     parent = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
+      name: "Check email",
       description: "Daily review",
-      responsible_id: 42,
+      responsible: responsible,
       first_run_at: Time.zone.parse("2026-05-11 10:00"),
       next_run_at: Time.zone.parse("2026-05-12 10:00")
     )
@@ -28,7 +30,7 @@ RSpec.describe Tasks::SplitLineage do
     child = described_class.call(
       task: parent,
       end_reason: :responsible_changed,
-      responsible_id: 77,
+      responsible_id: new_responsible.id,
       actor_id: 99
     )
 
@@ -51,7 +53,7 @@ RSpec.describe Tasks::SplitLineage do
 
     expect(child.parent_task).to eq(parent)
     expect(child.root_task).to eq(parent)
-    expect(child.responsible_id).to eq(77)
+    expect(child.responsible_id).to eq(new_responsible.id)
     expect(child.status).to eq("ongoing")
     expect(child.description).to eq("Daily review")
     expect(child.next_run_at).to eq(Time.zone.parse("2026-05-12 10:00"))
@@ -65,7 +67,7 @@ RSpec.describe Tasks::SplitLineage do
     expect(child.task_events.order(:id).pluck(:event_type)).to eq([ "created" ])
     expect(child.task_events.order(:id).last.payload_json).to include(
       "parent_task_id" => parent.id,
-      "responsible_id" => 77,
+      "responsible_id" => new_responsible.id,
       "source_current_occurrence_id" => planned_occurrence.id,
       "source_current_occurrence_status" => "planned",
       "child_occurrence_id" => child_occurrence.id,
@@ -75,11 +77,12 @@ RSpec.describe Tasks::SplitLineage do
 
   it "supersedes the parent occurrence and creates a new child occurrence for schedule changes" do
     travel_to(Time.zone.parse("2026-05-12 09:00")) do
+      responsible = build_user(email: "responsible@example.test", role: :doctor)
       parent = Task.create!(
         task_kind: :recurring,
         status: :ongoing,
-        title: "Check email",
-        responsible_id: 42,
+        name: "Check email",
+        responsible: responsible,
         first_run_at: Time.zone.parse("2026-05-11 10:00"),
         next_run_at: Time.zone.parse("2026-05-12 10:00")
       )
@@ -126,7 +129,7 @@ RSpec.describe Tasks::SplitLineage do
 
       expect(child.parent_task).to eq(parent)
       expect(child.root_task).to eq(parent)
-      expect(child.responsible_id).to eq(42)
+      expect(child.responsible_id).to eq(responsible.id)
       expect(child.recurrence_rule.execution_time.strftime("%H:%M")).to eq("14:00")
       expect(child_occurrence.task).to eq(child)
       expect(child_occurrence.status).to eq("planned")
@@ -138,11 +141,12 @@ RSpec.describe Tasks::SplitLineage do
 
   it "supersedes a postponed current occurrence and creates a new child occurrence on schedule changes" do
     travel_to(Time.zone.parse("2026-05-12 09:00")) do
+      responsible = build_user(email: "responsible@example.test", role: :doctor)
       parent = Task.create!(
         task_kind: :recurring,
         status: :ongoing,
-        title: "Check email",
-        responsible_id: 42,
+        name: "Check email",
+        responsible: responsible,
         first_run_at: Time.zone.parse("2026-05-11 10:00"),
         next_run_at: Time.zone.parse("2026-05-11 10:00")
       )
@@ -161,7 +165,7 @@ RSpec.describe Tasks::SplitLineage do
       Tasks::PostponeOccurrence.call(
         occurrence: planned_occurrence,
         postpone_to: Time.zone.parse("2026-05-12 14:00"),
-        actor_id: 42
+        actor_id: responsible.id
       )
 
       child = described_class.call(
@@ -194,11 +198,12 @@ RSpec.describe Tasks::SplitLineage do
 
   it "clears the child next_run_at when the replacement schedule has no future occurrence" do
     travel_to(Time.zone.parse("2026-05-12 23:00")) do
+      responsible = build_user(email: "responsible@example.test", role: :doctor)
       parent = Task.create!(
         task_kind: :recurring,
         status: :ongoing,
-        title: "Check email",
-        responsible_id: 42,
+        name: "Check email",
+        responsible: responsible,
         first_run_at: Time.zone.parse("2026-05-11 10:00"),
         next_run_at: Time.zone.parse("2026-05-12 10:00")
       )
@@ -237,11 +242,12 @@ RSpec.describe Tasks::SplitLineage do
   end
 
   it "rolls back all mutations when audit appending fails" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     parent = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42,
+      name: "Check email",
+      responsible: responsible,
       next_run_at: Time.zone.parse("2026-05-12 10:00")
     )
     parent.create_recurrence_rule!(
@@ -262,7 +268,7 @@ RSpec.describe Tasks::SplitLineage do
       described_class.call(
         task: parent,
         end_reason: :responsible_changed,
-        responsible_id: 77,
+        responsible_id: build_user(email: "replacement@example.test", role: :nurse).id,
         actor_id: 99
       )
     end.to raise_error(StandardError, "boom")
@@ -275,25 +281,27 @@ RSpec.describe Tasks::SplitLineage do
   end
 
   it "rejects final parents before mutating" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     parent = Task.create!(
       task_kind: :recurring,
       status: :cancelled,
       end_reason: :manual_cancelled,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
 
     expect do
-      described_class.call(task: parent, end_reason: :responsible_changed, responsible_id: 77, actor_id: 99)
+      described_class.call(task: parent, end_reason: :responsible_changed, responsible_id: build_user(email: "replacement-2@example.test", role: :nurse).id, actor_id: 99)
     end.to raise_error(ArgumentError, "task must be active")
   end
 
   it "rejects end reasons that do not structurally replace the task" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     parent = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
 
     expect do
@@ -306,11 +314,12 @@ RSpec.describe Tasks::SplitLineage do
   end
 
   it "requires a replacement responsible for responsible changes" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     parent = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
 
     expect do
@@ -319,15 +328,26 @@ RSpec.describe Tasks::SplitLineage do
   end
 
   it "requires replacement recurrence attributes for schedule changes" do
+    responsible = build_user(email: "responsible@example.test", role: :doctor)
     parent = Task.create!(
       task_kind: :recurring,
       status: :ongoing,
-      title: "Check email",
-      responsible_id: 42
+      name: "Check email",
+      responsible: responsible
     )
 
     expect do
       described_class.call(task: parent, end_reason: :schedule_changed, actor_id: 99)
     end.to raise_error(ArgumentError, "recurrence_rule_attributes are required for schedule_changed")
+  end
+
+  def build_user(email:, role:)
+    User.create!(
+      email:,
+      password: "password123",
+      role:,
+      name: "Test",
+      last_name: "User"
+    )
   end
 end
