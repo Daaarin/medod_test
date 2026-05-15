@@ -55,6 +55,9 @@ describe("createApiClient", () => {
 
     const client = createApiClient({ baseUrl: "http://api.test", fetchImpl: fetchMock });
 
-    await expect(client.request("/api/v1/tasks", { method: "POST" })).rejects.toBeInstanceOf(ApiError);
+    await expect(client.request("/api/v1/tasks", { method: "POST" })).rejects.toMatchObject({
+      status: 422,
+      messages: ["Name can't be blank"],
+    });
   });
 });
