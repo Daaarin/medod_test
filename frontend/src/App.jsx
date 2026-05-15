@@ -7,7 +7,8 @@ import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { getStoredToken, notifyUnauthorized } from "./auth/session";
 import { Shell } from "./layout/Shell";
-import { TasksPage } from "./tasks/TaskList";
+import { CalendarPage } from "./calendar/CalendarPage";
+import { TaskListPage, TasksPage } from "./tasks/TaskList";
 
 const queryClient = new QueryClient();
 const client = createApiClient({ getToken: getStoredToken, onUnauthorized: notifyUnauthorized });
@@ -33,8 +34,17 @@ export default function App() {
               <Route element={<Shell />}>
                 <Route index element={<Navigate to="/tasks" replace />} />
                 <Route path="/tasks" element={<TasksPage api={api} />} />
-                <Route path="/delegated" element={<PlaceholderPage title="Delegated" />} />
-                <Route path="/calendar" element={<PlaceholderPage title="Calendar" />} />
+                <Route
+                  path="/delegated"
+                  element={
+                    <TaskListPage
+                      api={api}
+                      title="Delegated"
+                      initialFilters={{ scope: "delegated_to_me", status: "pending_acceptance" }}
+                    />
+                  }
+                />
+                <Route path="/calendar" element={<CalendarPage api={api} />} />
                 <Route path="/tags" element={<PlaceholderPage title="Tags" />} />
                 <Route element={<ProtectedRoute adminOnly />}>
                   <Route path="/admin" element={<PlaceholderPage title="Admin" />} />
