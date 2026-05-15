@@ -77,9 +77,26 @@ export function TaskRow({ task }) {
   );
 }
 
-export function TaskListPage({ api, title = "Tasks", initialFilters = {}, showScope = true }) {
+function compactQueryFilters(filters, hasDateRange) {
+  const compacted = compactFilters(filters);
+
+  if (!hasDateRange) {
+    delete compacted.occurrence_status;
+  }
+
+  return compacted;
+}
+
+export function TaskListPage({
+  api,
+  title = "Tasks",
+  initialFilters = {},
+  showScope = true,
+  hiddenFilters = [],
+}) {
   const [filters, setFilters] = useState(() => ({ ...initialFilters }));
-  const queryFilters = useMemo(() => compactFilters(filters), [filters]);
+  const hasDateRange = Boolean(filters.from || filters.to);
+  const queryFilters = useMemo(() => compactQueryFilters(filters, hasDateRange), [filters, hasDateRange]);
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", queryFilters],
@@ -94,7 +111,7 @@ export function TaskListPage({ api, title = "Tasks", initialFilters = {}, showSc
         <p className="eyebrow">Workspace</p>
         <h2>{title}</h2>
       </header>
-      <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} />
+      <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
       {tasksQuery.isPending ? <div className="page-state">Loading tasks...</div> : null}
       {tasksQuery.isError ? <div className="alert error">{readError(tasksQuery.error)}</div> : null}
       {!tasksQuery.isPending && !tasksQuery.isError && rows.length === 0 ? (

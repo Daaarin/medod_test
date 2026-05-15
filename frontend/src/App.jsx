@@ -41,9 +41,12 @@ export default function App() {
                       api={api}
                       title="Delegated"
                       initialFilters={{ scope: "delegated_to_me", status: "pending_acceptance" }}
+                      showScope={false}
+                      hiddenFilters={["status"]}
                     />
                   }
                 />
+                <Route path="/tasks/:taskId" element={<PlaceholderPage title="Task detail" />} />
                 <Route path="/calendar" element={<CalendarPage api={api} />} />
                 <Route path="/tags" element={<PlaceholderPage title="Tags" />} />
                 <Route element={<ProtectedRoute adminOnly />}>

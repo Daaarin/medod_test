@@ -29,12 +29,17 @@ describe("TaskListPage", () => {
 
     renderTasks(api);
 
+    await user.type(screen.getByLabelText("From"), "2026-05-15");
     await user.selectOptions(screen.getByLabelText("Lifecycle status"), "ongoing");
     await user.selectOptions(screen.getByLabelText("Occurrence status"), "planned");
 
     await waitFor(() =>
       expect(api.tasks).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "ongoing", occurrence_status: "planned" }),
+        expect.objectContaining({
+          from: "2026-05-15",
+          status: "ongoing",
+          occurrence_status: "planned",
+        }),
       ),
     );
   });
