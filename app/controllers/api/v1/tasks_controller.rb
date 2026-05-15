@@ -10,7 +10,7 @@ module Api
       def index
         tasks = filtered_tasks
 
-        render json: { data: tasks.map { |task| task_payload(task) } }, status: :ok
+        render json: { data: task_list_payloads(tasks) }, status: :ok
       end
 
       def show
@@ -23,10 +23,11 @@ module Api
         task = Task.new(create_task_params)
         task.creator = current_user
         task.task_kind = "one_time" if task.task_kind.blank?
-        task.status = "draft"
+        task.status = initial_status_for(task)
         task.responsible = current_user if assign_to_self?
+        task.responsible = nil if task.delegated_user_id.present?
 
-        if valid_assignees?(task) && task.save
+        if valid_assignees?(task) && create_task_with_initial_occurrence(task)
           render json: { data: task_payload(task) }, status: :created
         else
           render_unprocessable_entity(task)
@@ -69,9 +70,9 @@ module Api
 
         def filtered_tasks
           tasks = apply_scope(visible_tasks)
-          tasks = apply_date_filters(tasks)
+          return tasks.includes(:recurrence_rule, :task_occurrences).order(created_at: :desc, id: :desc) if date_filter_requested?
 
-          tasks.order(created_at: :desc, id: :desc)
+          tasks.includes(:recurrence_rule, :task_occurrences).order(created_at: :desc, id: :desc)
         end
 
         def visible_tasks
@@ -100,28 +101,19 @@ module Api
           end
         end
 
-        def apply_date_filters(tasks)
+        def date_filter_requested?
+          params[:from].present? || params[:to].present?
+        end
+
+        def date_range
           from_date = parse_date_param!(:from)
           to_date = parse_date_param!(:to)
-          return tasks if from_date.blank? && to_date.blank?
+          return if from_date.blank? && to_date.blank?
 
           from_date ||= to_date
           to_date ||= from_date
 
-          from_time = from_date.beginning_of_day
-          to_time = to_date.end_of_day
-
-          tasks.where(
-            <<~SQL.squish,
-              (completion_date BETWEEN :from_date AND :to_date)
-              OR (first_run_at BETWEEN :from_time AND :to_time)
-              OR (next_run_at BETWEEN :from_time AND :to_time)
-            SQL
-            from_date: from_date,
-            to_date: to_date,
-            from_time: from_time,
-            to_time: to_time
-          )
+          [ from_date.beginning_of_day, to_date.end_of_day ]
         end
 
         def parse_date_param!(key)
@@ -140,7 +132,22 @@ module Api
             :completion_date,
             :task_kind,
             :first_run_at,
-            :next_run_at
+            :next_run_at,
+            :delegated_user_id,
+            recurrence_rule_attributes: [
+              :rule_type,
+              :interval_value,
+              :day_of_month,
+              :day_of_month_parity,
+              :month_of_year,
+              :weekday,
+              :weekday_parity,
+              :execution_time,
+              :timezone,
+              :date_start,
+              :date_end,
+              { recurrence_rule_dates_attributes: [ :run_date ] }
+            ]
           )
         end
 
@@ -154,6 +161,44 @@ module Api
 
         def assign_to_self?
           ActiveModel::Type::Boolean.new.cast(params.dig(:task, :assign_to_self))
+        end
+
+        def initial_status_for(task)
+          return "pending_acceptance" if task.delegated_user_id.present?
+
+          "draft"
+        end
+
+        def create_task_with_initial_occurrence(task)
+          Task.transaction do
+            task.save!
+            schedule_initial_occurrence!(task)
+          end
+
+          true
+        rescue ActiveRecord::RecordInvalid
+          false
+        end
+
+        def schedule_initial_occurrence!(task)
+          scheduled_at = task.next_run_at || initial_recurring_run_at(task)
+          return if scheduled_at.blank?
+
+          task.update!(next_run_at: scheduled_at) if task.next_run_at.blank?
+          task.task_occurrences.create!(
+            scheduled_at: scheduled_at,
+            status: :planned,
+            generated_at: Time.current
+          )
+        end
+
+        def initial_recurring_run_at(task)
+          return unless task.recurring?
+
+          TaskScheduling::NextOccurrenceCalculator.call(
+            task: task,
+            from_time: task.first_run_at || task.recurrence_rule.date_start.beginning_of_day
+          )
         end
 
         def valid_task_date_params?(action)
@@ -187,6 +232,76 @@ module Api
           user_id.blank? || User.exists?(id: user_id)
         end
 
+        def task_list_payloads(tasks)
+          return tasks.map { |task| task_payload(task) } unless date_filter_requested?
+
+          range_start, range_end = date_range
+          tasks.flat_map { |task| date_filtered_payloads(task, range_start, range_end) }
+        end
+
+        def date_filtered_payloads(task, range_start, range_end)
+          payloads = persisted_occurrence_payloads(task, range_start, range_end)
+          payloads += projected_occurrence_payloads(task, range_start, range_end)
+          payloads << task_payload(task) if payloads.empty? && completion_date_in_range?(task, range_start, range_end) && occurrence_status_filter.blank?
+
+          payloads
+        end
+
+        def persisted_occurrence_payloads(task, range_start, range_end)
+          task.task_occurrences.filter_map do |occurrence|
+            occurrence_time = occurrence_filter_time(occurrence)
+            next if occurrence_time.blank?
+            next unless occurrence_time.between?(range_start, range_end)
+            next unless occurrence_status_matches?(occurrence.status)
+
+            task_payload(task, occurrence: occurrence, occurrence_time: occurrence_time)
+          end
+        end
+
+        def projected_occurrence_payloads(task, range_start, range_end)
+          return [] unless task.active?
+          return [] unless occurrence_status_matches?("planned")
+
+          projected_times(task, range_start, range_end).filter_map do |projected_time|
+            next if persisted_occurrence_at?(task, projected_time)
+
+            task_payload(task, projected_occurrence_time: projected_time)
+          end
+        end
+
+        def projected_times(task, range_start, range_end)
+          if task.one_time?
+            return [ task.first_run_at, task.next_run_at ].compact.uniq.select { |time| time.between?(range_start, range_end) }
+          end
+
+          TaskScheduling::CalendarProjection.call(task: task, range_start: range_start, range_end: range_end)
+        end
+
+        def persisted_occurrence_at?(task, projected_time)
+          task.task_occurrences.any? do |occurrence|
+            occurrence_filter_time(occurrence) == projected_time
+          end
+        end
+
+        def occurrence_filter_time(occurrence)
+          return occurrence.postponed_to || occurrence.scheduled_at if occurrence.postponed?
+          return occurrence.actual_at || occurrence.scheduled_at if occurrence.executed?
+
+          occurrence.scheduled_at
+        end
+
+        def completion_date_in_range?(task, range_start, range_end)
+          task.completion_date.present? && task.completion_date.between?(range_start.to_date, range_end.to_date)
+        end
+
+        def occurrence_status_filter
+          params[:occurrence_status].presence
+        end
+
+        def occurrence_status_matches?(status)
+          occurrence_status_filter.blank? || occurrence_status_filter == status
+        end
+
         def render_unprocessable_entity(task)
           render json: { errors: task.errors.full_messages }, status: :unprocessable_entity
         end
@@ -195,12 +310,46 @@ module Api
           render json: { error: error.message }, status: :bad_request
         end
 
-        def task_payload(task)
+        def task_payload(task, occurrence: nil, occurrence_time: nil, projected_occurrence_time: nil)
+          occurrence_data = occurrence_attributes(
+            occurrence: occurrence,
+            occurrence_time: occurrence_time,
+            projected_occurrence_time: projected_occurrence_time
+          )
+
           {
-            id: task.id.to_s,
+            id: occurrence_data ? "#{task.id}:#{occurrence_data.fetch(:scheduled_at)}" : task.id.to_s,
             type: "task",
-            attributes: task_attributes(task)
+            attributes: task_attributes(task).merge(occurrence_data ? { occurrence: occurrence_data } : {})
           }
+        end
+
+        def occurrence_attributes(occurrence:, occurrence_time:, projected_occurrence_time:)
+          if occurrence
+            {
+              id: occurrence.id,
+              scheduled_at: occurrence.scheduled_at&.iso8601,
+              status: occurrence.status,
+              actual_at: occurrence.actual_at&.iso8601,
+              postponed_to: occurrence.postponed_to&.iso8601,
+              skip_reason: occurrence.skip_reason,
+              generated_at: occurrence.generated_at&.iso8601,
+              projected: false,
+              occurs_at: occurrence_time&.iso8601
+            }
+          elsif projected_occurrence_time
+            {
+              id: nil,
+              scheduled_at: projected_occurrence_time.iso8601,
+              status: "planned",
+              actual_at: nil,
+              postponed_to: nil,
+              skip_reason: nil,
+              generated_at: nil,
+              projected: true,
+              occurs_at: projected_occurrence_time.iso8601
+            }
+          end
         end
 
         def task_attributes(task)

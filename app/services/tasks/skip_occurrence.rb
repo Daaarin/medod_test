@@ -73,7 +73,20 @@ module Tasks
         next_run_at = next_occurrence_after(skipped_at)
 
         if next_run_at.nil?
-          task.update!(next_run_at: nil)
+          task.update!(
+            status: :completed,
+            end_reason: :series_completed,
+            completed_at: skipped_at,
+            next_run_at: nil
+          )
+
+          Tasks::AppendEvent.call(
+            task: task,
+            occurrence: occurrence,
+            event_type: :completed,
+            actor_id: actor_id,
+            payload: { end_reason: :series_completed }
+          )
         else
           task.task_occurrences.create!(
             scheduled_at: next_run_at,

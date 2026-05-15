@@ -92,6 +92,19 @@ RSpec.describe Task, type: :model do
     expect(task.errors[:base]).to include("final tasks are immutable")
   end
 
+  it "blocks hard deletion for active tasks" do
+    task = described_class.create!(
+      task_kind: :one_time,
+      status: :ongoing,
+      name: "Check email",
+      responsible: build_user(email: "responsible-delete@example.test", role: :doctor)
+    )
+
+    expect(task.destroy).to be(false)
+    expect(task.errors[:base]).to include("tasks cannot be hard-deleted; deactivate them instead")
+    expect(described_class.exists?(task.id)).to be(true)
+  end
+
   it "allows active tasks to transition into final states through the model API" do
     completed_task = described_class.create!(
       task_kind: :one_time,
