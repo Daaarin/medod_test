@@ -12,6 +12,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
+The stack requires a local `.env` file. Copy the template before starting
+Docker or opening the Dev Container.
+
 The compose setup provides:
 
 - Rails API backend on port `3000`
@@ -148,3 +151,14 @@ This repo is set up for Graphify with Codex.
 - Check `graphify-out/GRAPH_REPORT.md` for a compact architecture summary before answering codebase questions.
 
 The frontend talks to the Rails API at `http://localhost:3000`.
+
+## Dev Container
+
+Open the repository in VS Code with Dev Containers to launch the same backend,
+frontend, and PostgreSQL stack inside Docker.
+
+- The container configuration lives in [.devcontainer/devcontainer.json](/Users/exsamption/projects/medods_test_api/.devcontainer/devcontainer.json).
+- Create `.env` first, or the Compose-backed Dev Container will fail fast when
+  it starts.
+- The backend service is the workspace container; the frontend and database
+  services start alongside it.
