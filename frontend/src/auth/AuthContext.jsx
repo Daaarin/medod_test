@@ -50,7 +50,6 @@ export function AuthProvider({ api, children }) {
           setUser(null);
           setError(null);
         } else {
-          setUser(null);
           setError(normalizeMessage(requestError));
         }
       })

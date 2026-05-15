@@ -99,4 +99,24 @@ describe("AuthProvider", () => {
     expect(screen.getByText("Backend unavailable")).toBeInTheDocument();
     expect(screen.getByText("anonymous")).toBeInTheDocument();
   });
+
+  it("keeps the logged-in user visible when me fails after login with a server error", async () => {
+    const api = {
+      login: vi.fn().mockResolvedValue({
+        token: "token-2",
+        user: { id: 2, email: "doctor@example.test", role: "doctor" },
+      }),
+      me: vi.fn().mockRejectedValue({
+        status: 500,
+        messages: ["Backend unavailable"],
+      }),
+    };
+
+    renderAuth(api);
+    await userEvent.click(screen.getByRole("button", { name: "login" }));
+
+    await waitFor(() => expect(screen.getByText("doctor@example.test")).toBeInTheDocument());
+    expect(window.localStorage.getItem("medods.authToken")).toBe("token-2");
+    expect(screen.getByText("Backend unavailable")).toBeInTheDocument();
+  });
 });
