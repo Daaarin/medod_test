@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { clearStoredToken, getStoredToken, storeToken } from "./session";
+import { clearStoredToken, getStoredToken, storeToken, subscribeToUnauthorized } from "./session";
 
 const AuthContext = createContext(null);
 
@@ -47,7 +47,7 @@ export function AuthProvider({ api, children }) {
         clearStoredToken();
         setToken(null);
         setUser(null);
-        setError(normalizeMessage(requestError));
+        setError(requestError?.status === 401 ? null : normalizeMessage(requestError));
       })
       .finally(() => {
         if (!cancelled) {
@@ -59,6 +59,14 @@ export function AuthProvider({ api, children }) {
       cancelled = true;
     };
   }, [api, token]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToUnauthorized(() => {
+      logout();
+    });
+
+    return unsubscribe;
+  }, []);
 
   async function login(credentials) {
     setError(null);

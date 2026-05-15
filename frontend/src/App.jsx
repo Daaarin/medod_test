@@ -5,12 +5,12 @@ import { createEndpoints } from "./api/endpoints";
 import { AuthProvider } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
-import { getStoredToken } from "./auth/session";
+import { getStoredToken, notifyUnauthorized } from "./auth/session";
 import { Shell } from "./layout/Shell";
 import { TasksPage } from "./tasks/TaskList";
 
 const queryClient = new QueryClient();
-const client = createApiClient({ getToken: getStoredToken });
+const client = createApiClient({ getToken: getStoredToken, onUnauthorized: notifyUnauthorized });
 const api = createEndpoints(client);
 
 export default function App() {
