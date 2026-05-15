@@ -44,10 +44,15 @@ export function AuthProvider({ api, children }) {
       .catch((requestError) => {
         if (cancelled) return;
 
-        clearStoredToken();
-        setToken(null);
-        setUser(null);
-        setError(requestError?.status === 401 ? null : normalizeMessage(requestError));
+        if (requestError?.status === 401) {
+          clearStoredToken();
+          setToken(null);
+          setUser(null);
+          setError(null);
+        } else {
+          setUser(null);
+          setError(normalizeMessage(requestError));
+        }
       })
       .finally(() => {
         if (!cancelled) {

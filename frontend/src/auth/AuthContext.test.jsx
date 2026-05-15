@@ -10,6 +10,7 @@ function Probe() {
   return (
     <div>
       <span>{auth.user?.email || "anonymous"}</span>
+      <span>{auth.error || "no-error"}</span>
       <button onClick={() => auth.login({ email: "admin@example.test", password: "secret" })}>
         login
       </button>
@@ -79,5 +80,23 @@ describe("AuthProvider", () => {
 
     await waitFor(() => expect(screen.getByText("anonymous")).toBeInTheDocument());
     expect(window.localStorage.getItem("medods.authToken")).toBeNull();
+  });
+
+  it("preserves the stored token when me fails with a server error", async () => {
+    const api = {
+      login: vi.fn(),
+      me: vi.fn().mockRejectedValue({
+        status: 500,
+        messages: ["Backend unavailable"],
+      }),
+    };
+
+    window.localStorage.setItem("medods.authToken", "persisted-token");
+    renderAuth(api);
+
+    await waitFor(() => expect(api.me).toHaveBeenCalled());
+    expect(window.localStorage.getItem("medods.authToken")).toBe("persisted-token");
+    expect(screen.getByText("Backend unavailable")).toBeInTheDocument();
+    expect(screen.getByText("anonymous")).toBeInTheDocument();
   });
 });
