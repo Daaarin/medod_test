@@ -69,7 +69,7 @@ module Api
         end
 
         def filtered_tasks
-          tasks = apply_scope(visible_tasks)
+          tasks = apply_status_filter(apply_scope(visible_tasks))
           return tasks.includes(:recurrence_rule, :task_occurrences).order(created_at: :desc, id: :desc) if date_filter_requested?
 
           tasks.includes(:recurrence_rule, :task_occurrences).order(created_at: :desc, id: :desc)
@@ -99,6 +99,20 @@ module Api
             else
               tasks
           end
+        end
+
+        def apply_status_filter(tasks)
+          return tasks if status_filter.blank?
+
+          tasks.where(status: status_filter)
+        end
+
+        def status_filter
+          value = params[:status].presence
+          return if value.blank?
+          return value if Task.statuses.key?(value)
+
+          raise ActionController::BadRequest, "status is not included in the list"
         end
 
         def date_filter_requested?

@@ -189,6 +189,33 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(names).to eq([ "Ongoing task" ])
   end
 
+  it "composes lifecycle status filtering with delegated_to_me scope" do
+    creator = create_user(email: "creator-status-scope@example.test", role: :doctor)
+    delegate = create_user(email: "delegate-status-scope@example.test", role: :nurse)
+    create_task(name: "Pending delegated task", creator: creator, delegated_user: delegate, status: :pending_acceptance)
+    create_task(name: "Own pending task", creator: delegate, responsible: delegate, status: :pending_acceptance)
+    create_task(name: "Own ongoing task", creator: delegate, responsible: delegate, status: :ongoing)
+
+    get "/api/v1/tasks",
+        params: { scope: "delegated_to_me", status: "pending_acceptance" },
+        headers: auth_headers_for(delegate)
+
+    expect(response).to have_http_status(:ok)
+    names = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "name") }
+    expect(names).to eq([ "Pending delegated task" ])
+  end
+
+  it "rejects unknown lifecycle status filters" do
+    user = create_user(email: "doctor-invalid-status-filter@example.test", role: :doctor)
+
+    get "/api/v1/tasks",
+        params: { status: "not_a_status" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:bad_request)
+    expect(JSON.parse(response.body)).to include("error" => "status is not included in the list")
+  end
+
   it "returns stable client errors and ignores unsafe create assignment params" do
     user = create_user(email: "doctor@example.test", role: :doctor)
     headers = auth_headers_for(user)
@@ -348,6 +375,46 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     filtered_occurrences = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "occurrence") }
     expect(filtered_occurrences.size).to eq(1)
     expect(filtered_occurrences.first.fetch("status")).to eq("skipped")
+  end
+
+  it "composes lifecycle status and occurrence status filters for projected recurring occurrences" do
+    user = create_user(email: "doctor-status-projection@example.test", role: :doctor)
+    ongoing_task = create_task(
+      name: "Ongoing projected check",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :recurring
+    )
+    draft_task = create_task(
+      name: "Draft projected check",
+      creator: user,
+      responsible: user,
+      status: :draft,
+      task_kind: :recurring
+    )
+
+    [ ongoing_task, draft_task ].each do |task|
+      task.create_recurrence_rule!(
+        rule_type: :every_n_days,
+        interval_value: 1,
+        execution_time: "10:00",
+        timezone: "Europe/Moscow",
+        date_start: Date.new(2026, 5, 15),
+        date_end: Date.new(2026, 5, 17)
+      )
+    end
+
+    get "/api/v1/tasks",
+        params: { from: "2026-05-15", to: "2026-05-17", status: "ongoing", occurrence_status: "planned" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    items = JSON.parse(response.body).fetch("data")
+    expect(items.map { |item| item.dig("attributes", "name") }).to match_array(
+      [ "Ongoing projected check", "Ongoing projected check", "Ongoing projected check" ]
+    )
+    expect(items.map { |item| item.dig("attributes", "occurrence", "status") }).to all(eq("planned"))
   end
 
   def auth_headers_for(user)
