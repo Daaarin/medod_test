@@ -49,4 +49,18 @@ describe("Shell", () => {
     await waitFor(() => expect(screen.getByText("Nina Nurse")).toBeInTheDocument());
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
+
+  it("shows admin navigation for administrators", async () => {
+    renderShell({
+      id: 1,
+      email: "admin@example.test",
+      role: "administrator",
+      name: "Ada",
+      last_name: "Admin",
+    });
+
+    expect(await screen.findByText("Tasks content")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Ada Admin")).toBeInTheDocument());
+    expect(await screen.findByRole("link", { name: "Admin" })).toBeInTheDocument();
+  });
 });

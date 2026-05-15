@@ -13,6 +13,15 @@ const queryClient = new QueryClient();
 const client = createApiClient({ getToken: getStoredToken, onUnauthorized: notifyUnauthorized });
 const api = createEndpoints(client);
 
+function PlaceholderPage({ title }) {
+  return (
+    <section className="panel">
+      <p className="eyebrow">Coming soon</p>
+      <h2>{title}</h2>
+    </section>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -24,6 +33,12 @@ export default function App() {
               <Route element={<Shell />}>
                 <Route index element={<Navigate to="/tasks" replace />} />
                 <Route path="/tasks" element={<TasksPage api={api} />} />
+                <Route path="/delegated" element={<PlaceholderPage title="Delegated" />} />
+                <Route path="/calendar" element={<PlaceholderPage title="Calendar" />} />
+                <Route path="/tags" element={<PlaceholderPage title="Tags" />} />
+                <Route element={<ProtectedRoute adminOnly />}>
+                  <Route path="/admin" element={<PlaceholderPage title="Admin" />} />
+                </Route>
               </Route>
             </Route>
           </Routes>
