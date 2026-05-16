@@ -79,6 +79,45 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(JSON.parse(response.body).dig("data").map { |item| item.dig("id") }).not_to include(task_id)
   end
 
+  it "rejects recurring tasks without an initial schedule or recurrence rule" do
+    user = create_user(email: "doctor-recurring-validation@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "Recurring orphan",
+             task_kind: "recurring"
+           }
+         },
+         headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(JSON.parse(response.body).fetch("errors")).to include(
+      "recurring tasks require recurrence_rule_attributes or next_run_at"
+    )
+    expect(Task.find_by(name: "Recurring orphan")).to be_nil
+  end
+
+  it "rejects recurring tasks that only provide first_run_at without a recurrence rule" do
+    user = create_user(email: "doctor-recurring-first-run@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "Recurring first run only",
+             task_kind: "recurring",
+             first_run_at: "2026-05-15T09:30:00+03:00"
+           }
+         },
+         headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(JSON.parse(response.body).fetch("errors")).to include(
+      "recurring tasks require recurrence_rule_attributes or next_run_at"
+    )
+    expect(Task.find_by(name: "Recurring first run only")).to be_nil
+  end
+
   it "enforces bonded visibility for staff and broader access for administrators" do
     admin = create_user(email: "admin@example.test", role: :administrator)
     doctor = create_user(email: "doctor@example.test", role: :doctor)

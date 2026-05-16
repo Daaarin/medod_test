@@ -27,7 +27,7 @@ module Api
         task.responsible = current_user if assign_to_self?
         task.responsible = nil if task.delegated_user_id.present?
 
-        if valid_assignees?(task) && create_task_with_initial_occurrence(task)
+        if valid_assignees?(task) && valid_initial_occurrence_context?(task) && create_task_with_initial_occurrence(task)
           render json: { data: task_payload(task) }, status: :created
         else
           render_unprocessable_entity(task)
@@ -239,6 +239,13 @@ module Api
           return true if assignee_exists?(task.responsible_id) && assignee_exists?(task.delegated_user_id)
 
           task.errors.add(:base, "responsible_id and delegated_user_id must reference existing users")
+          false
+        end
+
+        def valid_initial_occurrence_context?(task)
+          return true unless task.recurring? && task.recurrence_rule.blank? && task.next_run_at.blank?
+
+          task.errors.add(:base, "recurring tasks require recurrence_rule_attributes or next_run_at")
           false
         end
 

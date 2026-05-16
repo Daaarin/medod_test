@@ -43,7 +43,7 @@ export function TaskRow({ task }) {
           <h3>{rowTitle(task)}</h3>
           <p>{attributes.description || "No description"}</p>
         </div>
-        {baseTaskId ? <Link to={`/tasks/${baseTaskId}`}>Open</Link> : null}
+        {baseTaskId ? <Link to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>Open</Link> : null}
       </div>
       <dl className="stack">
         <div>

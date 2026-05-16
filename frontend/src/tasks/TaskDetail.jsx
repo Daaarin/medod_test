@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 function readError(error) {
   if (error?.messages?.length) {
@@ -71,6 +71,7 @@ function taskTags(attributes) {
 
 export function TaskDetail({ api }) {
   const { taskId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editValues, setEditValues] = useState(() => emptyEditState());
@@ -90,7 +91,7 @@ export function TaskDetail({ api }) {
 
   const task = taskQuery.data?.data;
   const attributes = task?.attributes || {};
-  const occurrence = attributes.occurrence || null;
+  const occurrence = attributes.occurrence || location.state?.occurrence || null;
   const attachedTags = taskTags(attributes);
   const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
   const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
