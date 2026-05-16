@@ -416,6 +416,127 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(filtered_occurrences.first.fetch("status")).to eq("skipped")
   end
 
+  it "narrows date-filtered task listing to relevant tasks and occurrences in SQL" do
+    user = create_user(email: "doctor-date-narrowing@example.test", role: :doctor)
+
+    projected_task = create_task(
+      name: "Projected follow-up",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :recurring
+    )
+    projected_task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 15),
+      date_end: Date.new(2026, 5, 17)
+    )
+
+    occurrence_task = create_task(
+      name: "Persisted occurrence window",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :recurring
+    )
+    occurrence_task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "09:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 10),
+      date_end: Date.new(2026, 5, 30)
+    )
+    occurrence_task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-15 09:00"),
+      status: :planned,
+      generated_at: Time.current
+    )
+    occurrence_task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-04-15 09:00"),
+      status: :executed,
+      actual_at: Time.zone.parse("2026-04-15 09:30"),
+      generated_at: Time.current
+    )
+
+    completion_task = create_task(
+      name: "Completion fallback",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :one_time,
+      completion_date: Date.new(2026, 5, 16)
+    )
+
+    create_task(
+      name: "Historical noise",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :one_time,
+      completion_date: Date.new(2026, 5, 1)
+    )
+
+    create_task(
+      name: "Future noise",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :one_time,
+      next_run_at: Time.zone.parse("2026-05-25 09:00")
+    )
+
+    instantiations = Hash.new(0)
+    subscriber = ActiveSupport::Notifications.subscribe("instantiation.active_record") do |*args|
+      payload = args.last
+      instantiations[payload[:class_name]] += payload[:record_count]
+    end
+
+    get "/api/v1/tasks",
+        params: { from: "2026-05-15", to: "2026-05-17" },
+        headers: auth_headers_for(user)
+
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+
+    expect(response).to have_http_status(:ok)
+    names = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "name") }
+    expect(names).to match_array(
+      [
+        "Projected follow-up",
+        "Projected follow-up",
+        "Projected follow-up",
+        "Persisted occurrence window",
+        "Persisted occurrence window",
+        "Persisted occurrence window",
+        "Completion fallback"
+      ]
+    )
+    expect(instantiations["Task"]).to eq(3)
+    expect(instantiations["TaskOccurrence"]).to eq(2)
+  end
+
+  it "includes active attached tags in task payloads" do
+    user = create_user(email: "doctor-task-tags@example.test", role: :doctor)
+    task = create_task(name: "Tagged task", creator: user, responsible: user, status: :ongoing)
+    active_tag = Tag.create!(name: "Active tag")
+    inactive_tag = Tag.create!(name: "Inactive tag")
+    unattached_tag = Tag.create!(name: "Unattached tag")
+
+    TaskTag.attach!(task: task, tag: active_tag)
+    TaskTag.attach!(task: task, tag: inactive_tag)
+    inactive_tag.deactivate!
+
+    get "/api/v1/tasks/#{task.id}", headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    tags = JSON.parse(response.body).dig("data", "attributes", "tags")
+    expect(tags.map { |tag| tag.dig("id") }).to eq([ active_tag.id.to_s ])
+    expect(tags.map { |tag| tag.dig("id") }).not_to include(inactive_tag.id.to_s, unattached_tag.id.to_s)
+  end
+
   it "composes lifecycle status and occurrence status filters for projected recurring occurrences" do
     user = create_user(email: "doctor-status-projection@example.test", role: :doctor)
     ongoing_task = create_task(

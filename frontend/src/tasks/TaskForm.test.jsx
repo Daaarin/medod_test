@@ -13,6 +13,16 @@ describe("TaskForm", () => {
     expect(screen.getByLabelText("Specific dates")).toBeInTheDocument();
   });
 
+  it("enables weekday parity fields for recurring tasks", async () => {
+    render(<TaskForm onSubmit={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "weekday_parity");
+
+    expect(screen.getByLabelText("Weekday parity")).toBeInTheDocument();
+    expect(screen.getByLabelText("Weekday parity")).toHaveValue("even");
+  });
+
   it("converts recurring submit values to task payload fields", async () => {
     const onSubmit = vi.fn();
     render(<TaskForm onSubmit={onSubmit} />);
@@ -32,6 +42,28 @@ describe("TaskForm", () => {
         recurrence_rule_attributes: expect.objectContaining({
           rule_type: "specific_dates",
           recurrence_rule_dates_attributes: [{ run_date: "2026-05-16" }, { run_date: "2026-05-20" }],
+        }),
+      }),
+    );
+  });
+
+  it("submits weekday parity when the weekday parity rule is selected", async () => {
+    const onSubmit = vi.fn();
+    render(<TaskForm onSubmit={onSubmit} />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "Evening check");
+    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "weekday_parity");
+    await userEvent.selectOptions(screen.getByLabelText("Weekday parity"), "odd");
+    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Evening check",
+        task_kind: "recurring",
+        recurrence_rule_attributes: expect.objectContaining({
+          rule_type: "weekday_parity",
+          weekday_parity: "odd",
         }),
       }),
     );

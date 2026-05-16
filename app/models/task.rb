@@ -9,6 +9,8 @@ class Task < ApplicationRecord
   has_one :recurrence_rule, dependent: :destroy, inverse_of: :task
   has_many :task_occurrences, dependent: :destroy, inverse_of: :task
   has_many :task_events, dependent: :destroy, inverse_of: :task
+  has_many :task_tags, inverse_of: :task
+  has_many :tags, through: :task_tags
   accepts_nested_attributes_for :recurrence_rule
 
   enum :task_kind, { one_time: "one_time", recurring: "recurring" }, validate: true

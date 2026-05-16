@@ -8,7 +8,8 @@ module Api
       before_action :authorize_task_write!, only: %i[update destroy]
 
       def index
-        tasks = filtered_tasks
+        tasks = filtered_tasks.to_a
+        preload_date_filtered_occurrences!(tasks) if date_filter_requested?
 
         render json: { data: task_list_payloads(tasks) }, status: :ok
       end
@@ -57,7 +58,7 @@ module Api
       private
 
         def set_task
-          @task = visible_tasks.find(params[:id])
+          @task = visible_tasks.includes(:recurrence_rule, :task_occurrences, task_tags: :tag).find(params[:id])
         end
 
         def authorize_task_write!
@@ -70,9 +71,12 @@ module Api
 
         def filtered_tasks
           tasks = apply_status_filter(apply_scope(visible_tasks))
-          return tasks.includes(:recurrence_rule, :task_occurrences).order(created_at: :desc, id: :desc) if date_filter_requested?
+          if date_filter_requested?
+            tasks = date_filtered_task_candidates(tasks)
+            return tasks.includes(:recurrence_rule, task_tags: :tag).order(created_at: :desc, id: :desc).distinct
+          end
 
-          tasks.includes(:recurrence_rule, :task_occurrences).order(created_at: :desc, id: :desc)
+          tasks.includes(:recurrence_rule, :task_occurrences, task_tags: :tag).order(created_at: :desc, id: :desc)
         end
 
         def visible_tasks
@@ -128,6 +132,59 @@ module Api
           to_date ||= from_date
 
           [ from_date.beginning_of_day, to_date.end_of_day ]
+        end
+
+        def date_filtered_task_candidates(tasks)
+          range_start, range_end = date_range
+          range_start_date = range_start.to_date
+          range_end_date = range_end.to_date
+
+          tasks.left_outer_joins(:recurrence_rule).where(
+            <<~SQL.squish,
+              EXISTS (
+                SELECT 1
+                FROM task_occurrences
+                WHERE task_occurrences.task_id = tasks.id
+                  AND (
+                    task_occurrences.scheduled_at BETWEEN :range_start AND :range_end
+                    OR task_occurrences.actual_at BETWEEN :range_start AND :range_end
+                    OR task_occurrences.postponed_to BETWEEN :range_start AND :range_end
+                  )
+              )
+              OR tasks.completion_date BETWEEN :range_start_date AND :range_end_date
+              OR (
+                recurrence_rules.id IS NOT NULL
+                AND recurrence_rules.date_start <= :range_end_date
+                AND (recurrence_rules.date_end IS NULL OR recurrence_rules.date_end >= :range_start_date)
+              )
+              OR (
+                tasks.task_kind = 'one_time'
+                AND (
+                  tasks.first_run_at BETWEEN :range_start AND :range_end
+                  OR tasks.next_run_at BETWEEN :range_start AND :range_end
+                )
+              )
+            SQL
+            range_start: range_start,
+            range_end: range_end,
+            range_start_date: range_start_date,
+            range_end_date: range_end_date
+          )
+        end
+
+        def preload_date_filtered_occurrences!(tasks)
+          range_start, range_end = date_range
+          occurrence_scope = TaskOccurrence.where(
+            "(scheduled_at BETWEEN :range_start AND :range_end) OR (actual_at BETWEEN :range_start AND :range_end) OR (postponed_to BETWEEN :range_start AND :range_end)",
+            range_start: range_start,
+            range_end: range_end
+          )
+
+          ActiveRecord::Associations::Preloader.new(
+            records: tasks,
+            associations: :task_occurrences,
+            scope: occurrence_scope
+          ).call
         end
 
         def parse_date_param!(key)
@@ -390,7 +447,30 @@ module Api
             cancelled_at: task.cancelled_at&.iso8601,
             cancellation_reason: task.cancellation_reason,
             end_reason: task.end_reason,
-            deactivated_at: task.deactivated_at&.iso8601
+            deactivated_at: task.deactivated_at&.iso8601,
+            tags: task_tags(task)
+          }
+        end
+
+        def task_tags(task)
+          task.task_tags
+              .select { |task_tag| task_tag.active? && task_tag.tag&.active? }
+              .sort_by { |task_tag| [ task_tag.created_at || Time.zone.at(0), task_tag.id || 0 ] }
+              .map do |task_tag|
+            tag_payload(task_tag.tag)
+          end
+        end
+
+        def tag_payload(tag)
+          {
+            id: tag.id.to_s,
+            type: "tag",
+            attributes: {
+              name: tag.name,
+              description: tag.description,
+              is_system_tag: tag.is_system_tag,
+              deactivated_at: tag.deactivated_at&.iso8601
+            }
           }
         end
     end

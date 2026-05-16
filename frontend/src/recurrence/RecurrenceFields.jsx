@@ -11,6 +11,21 @@ function setNestedField(value, onChange, key, fieldValue) {
   });
 }
 
+function ParitySelect({ label, rule, parity, onChange, fieldKey }) {
+  return (
+    <label>
+      {label}
+      <select
+        value={parity || "even"}
+        onChange={(event) => setNestedField(rule, onChange, fieldKey, event.target.value)}
+      >
+        <option value="even">even</option>
+        <option value="odd">odd</option>
+      </select>
+    </label>
+  );
+}
+
 export function RecurrenceFields({ value, onChange }) {
   const ruleType = value.rule_type || "every_n_days";
 
@@ -105,16 +120,23 @@ export function RecurrenceFields({ value, onChange }) {
       ) : null}
 
       {ruleType === "day_of_month_parity" ? (
-        <label>
-          Day parity
-          <select
-            value={value.day_of_month_parity || "even"}
-            onChange={(event) => setNestedField(value, onChange, "day_of_month_parity", event.target.value)}
-          >
-            <option value="even">even</option>
-            <option value="odd">odd</option>
-          </select>
-        </label>
+        <ParitySelect
+          label="Day parity"
+          rule={value}
+          parity={value.day_of_month_parity}
+          onChange={onChange}
+          fieldKey="day_of_month_parity"
+        />
+      ) : null}
+
+      {ruleType === "weekday_parity" ? (
+        <ParitySelect
+          label="Weekday parity"
+          rule={value}
+          parity={value.weekday_parity}
+          onChange={onChange}
+          fieldKey="weekday_parity"
+        />
       ) : null}
 
       {ruleType === "specific_dates" ? (
