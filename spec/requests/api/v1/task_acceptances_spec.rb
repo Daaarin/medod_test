@@ -83,6 +83,26 @@ RSpec.describe "Api::V1::TaskAcceptances", type: :request do
     )
   end
 
+  it "declines a delegated task by clearing scheduled state and cancelling the current occurrence" do
+    creator = create_user(email: "creator-scheduled-decline@example.test", role: :administrator)
+    delegate = create_user(email: "delegate-scheduled-decline@example.test", role: :doctor)
+    scheduled_at = Time.zone.parse("2026-05-15 10:00")
+    task = create_task(
+      name: "Scheduled decline",
+      creator: creator,
+      delegated_user: delegate,
+      status: :pending_acceptance
+    )
+    task.update!(next_run_at: scheduled_at)
+    occurrence = task.task_occurrences.create!(scheduled_at: scheduled_at, status: :planned)
+
+    post "/api/v1/tasks/#{task.id}/decline", headers: auth_headers_for(delegate)
+
+    expect(response).to have_http_status(:ok)
+    expect(task.reload.next_run_at).to be_nil
+    expect(occurrence.reload.status).to eq("cancelled")
+  end
+
   it "returns forbidden for visible tasks when the caller is not the delegate" do
     creator = create_user(email: "creator3@example.test", role: :administrator)
     delegate = create_user(email: "delegate3@example.test", role: :doctor)

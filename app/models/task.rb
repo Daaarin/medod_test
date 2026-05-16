@@ -9,6 +9,9 @@ class Task < ApplicationRecord
   has_one :recurrence_rule, dependent: :destroy, inverse_of: :task
   has_many :task_occurrences, dependent: :destroy, inverse_of: :task
   has_many :task_events, dependent: :destroy, inverse_of: :task
+  has_many :task_tags, inverse_of: :task
+  has_many :tags, through: :task_tags
+  accepts_nested_attributes_for :recurrence_rule
 
   enum :task_kind, { one_time: "one_time", recurring: "recurring" }, validate: true
   enum :status, {
@@ -31,7 +34,7 @@ class Task < ApplicationRecord
   validate :end_reason_required_for_final_tasks
   validate :one_time_tasks_must_not_have_recurrence_rule
   before_update :prevent_mutation_when_final
-  before_destroy :prevent_mutation_when_final
+  before_destroy :prevent_destroy
 
   def active?
     !final? && deactivated_at.blank?
@@ -76,6 +79,11 @@ class Task < ApplicationRecord
       return unless persisted_final?
 
       errors.add(:base, "final tasks are immutable")
+      throw :abort
+    end
+
+    def prevent_destroy
+      errors.add(:base, "tasks cannot be hard-deleted; deactivate them instead")
       throw :abort
     end
 

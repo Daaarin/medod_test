@@ -1,135 +1,95 @@
-import { NavLink, Route, Routes } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { createApiClient } from "./api/client";
+import { createEndpoints } from "./api/endpoints";
+import { AdminPage } from "./admin/AdminPage";
+import { AuthProvider } from "./auth/AuthContext";
+import { LoginPage } from "./auth/LoginPage";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
+import { getStoredToken, notifyUnauthorized } from "./auth/session";
+import { Shell } from "./layout/Shell";
+import { CalendarPage } from "./calendar/CalendarPage";
+import { TaskDetail } from "./tasks/TaskDetail";
+import { TaskForm } from "./tasks/TaskForm";
+import { TaskListPage, TasksPage } from "./tasks/TaskList";
+import { TagsPage } from "./tags/TagsPage";
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const queryClient = new QueryClient();
+const client = createApiClient({ getToken: getStoredToken, onUnauthorized: notifyUnauthorized });
+const api = createEndpoints(client);
 
-function fetchHealth() {
-  return fetch(`${apiBase}/up`).then(async (response) => {
-    if (!response.ok) {
-      throw new Error(`Health check failed with ${response.status}`);
-    }
-
-    return response.text();
-  });
-}
-
-function Shell({ children }) {
+function PlaceholderPage({ title }) {
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div>
-          <p className="eyebrow">API service</p>
-          <h1>Medods Admin</h1>
-          <p className="sidebar-copy">
-            React + Vite for a fast multi-tab admin panel with client-side routing and cached queries.
-          </p>
-        </div>
-
-        <nav className="tabs" aria-label="Primary">
-          <NavLink to="/" end>
-            Overview
-          </NavLink>
-          <NavLink to="/users">Users</NavLink>
-          <NavLink to="/activity">Activity</NavLink>
-          <NavLink to="/settings">Settings</NavLink>
-        </nav>
-      </aside>
-
-      <main className="content">{children}</main>
-    </div>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div className="card stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function Overview() {
-  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
-
-  return (
-    <section className="stack">
-      <div className="hero">
-        <div>
-          <p className="eyebrow">Dashboard</p>
-          <h2>Fast navigation without full reloads.</h2>
-          <p>
-            Use nested routes and cached fetches for a lightweight admin panel that feels native.
-          </p>
-        </div>
-
-        <div className="grid">
-          <Stat label="Routing" value="Client-side" />
-          <Stat label="API" value={health.isLoading ? "Checking..." : health.data ?? "Offline"} />
-          <Stat label="DB" value="PostgreSQL 16" />
-          <Stat label="Docs" value="Swagger / OpenAPI" />
-        </div>
-      </div>
-
-      <div className="card">
-        <h3>Backend status</h3>
-        <p className={health.isError ? "status error" : "status ok"}>
-          {health.isError
-            ? "Rails is unreachable from the frontend container."
-            : health.isLoading
-              ? "Loading status from the API..."
-              : "Rails API is responding at /up."}
-        </p>
-      </div>
+    <section className="panel">
+      <p className="eyebrow">Coming soon</p>
+      <h2>{title}</h2>
     </section>
   );
 }
 
-function PlaceholderPage({ title, description }) {
+function NewTaskPage({ api }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const createTask = useMutation({
+    mutationFn: (task) => api.createTask(task),
+    onSuccess: async (payload) => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      const createdId = payload?.data?.id;
+      if (createdId) {
+        navigate(`/tasks/${createdId}`, { replace: true });
+      }
+    },
+  });
+
   return (
-    <section className="card stack">
-      <div>
-        <p className="eyebrow">Admin tab</p>
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </div>
+    <section className="stack">
+      <header className="page-header">
+        <p className="eyebrow">Workspace</p>
+        <h2>New task</h2>
+      </header>
+      {createTask.isError ? (
+        <div className="alert error">{createTask.error?.messages?.join(", ") || "Unable to create task"}</div>
+      ) : null}
+      <TaskForm onSubmit={(task) => createTask.mutate(task)} submitLabel="Create task" />
     </section>
   );
 }
 
 export default function App() {
   return (
-    <Shell>
-      <Routes>
-        <Route path="/" element={<Overview />} />
-        <Route
-          path="/users"
-          element={
-            <PlaceholderPage
-              title="Users"
-              description="A dedicated route for user management, with local tab state preserved by the SPA."
-            />
-          }
-        />
-        <Route
-          path="/activity"
-          element={
-            <PlaceholderPage
-              title="Activity"
-              description="A route for logs, jobs, and live updates without forcing a page refresh."
-            />
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <PlaceholderPage
-              title="Settings"
-              description="A place for feature flags, API keys, and admin controls."
-            />
-          }
-        />
-      </Routes>
-    </Shell>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider api={api}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Shell />}>
+                <Route index element={<Navigate to="/tasks" replace />} />
+                <Route path="/tasks/new" element={<NewTaskPage api={api} />} />
+                <Route path="/tasks" element={<TasksPage api={api} primaryAction={{ to: "/tasks/new", label: "New task" }} />} />
+                <Route
+                  path="/delegated"
+                  element={
+                    <TaskListPage
+                      api={api}
+                      title="Delegated"
+                      initialFilters={{ scope: "delegated_to_me", status: "pending_acceptance" }}
+                      showScope={false}
+                      hiddenFilters={["status"]}
+                    />
+                  }
+                />
+                <Route path="/tasks/:taskId" element={<TaskDetail api={api} />} />
+                <Route path="/calendar" element={<CalendarPage api={api} />} />
+                <Route path="/tags" element={<TagsPage api={api} />} />
+                <Route element={<ProtectedRoute adminOnly />}>
+                  <Route path="/admin" element={<AdminPage api={api} />} />
+                </Route>
+              </Route>
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

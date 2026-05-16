@@ -81,11 +81,15 @@ module Api
         end
 
         def transition_to_declined!
+          cancelled_at = Time.current
+          cancel_current_occurrences!(cancelled_at)
+
           @task.update!(
             status: :cancelled,
             end_reason: :declined,
             cancellation_reason: "was declined",
-            cancelled_at: Time.current
+            cancelled_at: cancelled_at,
+            next_run_at: nil
           )
 
           Tasks::AppendEvent.call(
@@ -96,6 +100,12 @@ module Api
           )
 
           :ok
+        end
+
+        def cancel_current_occurrences!(cancelled_at)
+          @task.task_occurrences
+            .where(status: TaskOccurrence::CURRENT_STATUSES)
+            .update_all(status: "cancelled", updated_at: cancelled_at)
         end
 
         def render_transition_result(result)
@@ -125,7 +135,8 @@ module Api
             status: "cancelled",
             end_reason: "declined",
             cancellation_reason: "was declined",
-            cancelled_at: @task.cancelled_at&.iso8601
+            cancelled_at: @task.cancelled_at&.iso8601,
+            next_run_at: nil
           }
         end
 

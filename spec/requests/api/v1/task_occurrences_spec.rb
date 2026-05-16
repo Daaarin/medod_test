@@ -280,6 +280,32 @@ RSpec.describe "Api::V1::TaskOccurrences", type: :request do
     expect(task.next_run_at).to be_nil
   end
 
+  it "skips the last recurring occurrence and finalizes the task" do
+    user = create_user(email: "doctor-skip-last-recurring@example.test", role: :doctor)
+    scheduled_at = Time.zone.parse("2026-05-15 10:00")
+    task = create_recurring_task(
+      name: "Finite daily call",
+      responsible: user,
+      scheduled_at: scheduled_at
+    )
+    task.recurrence_rule.update!(date_end: scheduled_at.to_date)
+    occurrence = task.task_occurrences.find_by!(status: :planned)
+
+    travel_to(Time.zone.parse("2026-05-15 10:01")) do
+      expect do
+        post "/api/v1/task_occurrences/#{occurrence.id}/skip",
+             headers: auth_headers_for(user)
+      end.to change(TaskEvent, :count).by(2)
+    end
+
+    expect(response).to have_http_status(:ok)
+    expect(occurrence.reload.status).to eq("skipped")
+    expect(task.reload.status).to eq("completed")
+    expect(task.end_reason).to eq("series_completed")
+    expect(task.next_run_at).to be_nil
+    expect(task.task_occurrences.where(status: :planned)).to be_empty
+  end
+
   def auth_headers_for(user)
     { "Authorization" => "Bearer #{user.issue_auth_token!}" }
   end

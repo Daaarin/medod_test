@@ -1,6 +1,10 @@
 require "swagger_helper"
 
 RSpec.describe "API V1 Swagger", type: :request do
+  before do
+    host! "localhost"
+  end
+
   def create_user(email:, role: :doctor)
     User.create!(
       email: email,
