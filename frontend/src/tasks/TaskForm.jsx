@@ -21,10 +21,11 @@ function recurrencePayload(rule) {
     rule_type: rule.rule_type,
     interval_value: rule.interval_value || undefined,
     day_of_month: rule.day_of_month || undefined,
-    day_of_month_parity: rule.day_of_month_parity || undefined,
+    day_of_month_parity:
+      rule.rule_type === "day_of_month_parity" ? rule.day_of_month_parity || "even" : undefined,
     month_of_year: rule.month_of_year || undefined,
     weekday: rule.weekday || undefined,
-    weekday_parity: rule.weekday_parity || undefined,
+    weekday_parity: rule.rule_type === "weekday_parity" ? rule.weekday_parity || "even" : undefined,
     execution_time: rule.execution_time || undefined,
     timezone: rule.timezone || "Europe/Moscow",
     date_start: rule.date_start || undefined,

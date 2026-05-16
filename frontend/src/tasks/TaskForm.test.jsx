@@ -68,4 +68,46 @@ describe("TaskForm", () => {
       }),
     );
   });
+
+  it("submits day parity default as even when unchanged", async () => {
+    const onSubmit = vi.fn();
+    render(<TaskForm onSubmit={onSubmit} />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "Midmonth review");
+    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "day_of_month_parity");
+    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Midmonth review",
+        task_kind: "recurring",
+        recurrence_rule_attributes: expect.objectContaining({
+          rule_type: "day_of_month_parity",
+          day_of_month_parity: "even",
+        }),
+      }),
+    );
+  });
+
+  it("submits weekday parity default as even when unchanged", async () => {
+    const onSubmit = vi.fn();
+    render(<TaskForm onSubmit={onSubmit} />);
+
+    await userEvent.type(screen.getByLabelText("Name"), "Weekly review");
+    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "weekday_parity");
+    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Weekly review",
+        task_kind: "recurring",
+        recurrence_rule_attributes: expect.objectContaining({
+          rule_type: "weekday_parity",
+          weekday_parity: "even",
+        }),
+      }),
+    );
+  });
 });
