@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { createApiClient } from "./api/client";
 import { createEndpoints } from "./api/endpoints";
 import { AuthProvider } from "./auth/AuthContext";
@@ -8,6 +8,8 @@ import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { getStoredToken, notifyUnauthorized } from "./auth/session";
 import { Shell } from "./layout/Shell";
 import { CalendarPage } from "./calendar/CalendarPage";
+import { TaskDetail } from "./tasks/TaskDetail";
+import { TaskForm } from "./tasks/TaskForm";
 import { TaskListPage, TasksPage } from "./tasks/TaskList";
 
 const queryClient = new QueryClient();
@@ -23,6 +25,34 @@ function PlaceholderPage({ title }) {
   );
 }
 
+function NewTaskPage({ api }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const createTask = useMutation({
+    mutationFn: (task) => api.createTask(task),
+    onSuccess: async (payload) => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      const createdId = payload?.data?.id;
+      if (createdId) {
+        navigate(`/tasks/${createdId}`, { replace: true });
+      }
+    },
+  });
+
+  return (
+    <section className="stack">
+      <header className="page-header">
+        <p className="eyebrow">Workspace</p>
+        <h2>New task</h2>
+      </header>
+      {createTask.isError ? (
+        <div className="alert error">{createTask.error?.messages?.join(", ") || "Unable to create task"}</div>
+      ) : null}
+      <TaskForm onSubmit={(task) => createTask.mutate(task)} submitLabel="Create task" />
+    </section>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -33,7 +63,8 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Shell />}>
                 <Route index element={<Navigate to="/tasks" replace />} />
-                <Route path="/tasks" element={<TasksPage api={api} />} />
+                <Route path="/tasks/new" element={<NewTaskPage api={api} />} />
+                <Route path="/tasks" element={<TasksPage api={api} primaryAction={{ to: "/tasks/new", label: "New task" }} />} />
                 <Route
                   path="/delegated"
                   element={
@@ -46,7 +77,7 @@ export default function App() {
                     />
                   }
                 />
-                <Route path="/tasks/:taskId" element={<PlaceholderPage title="Task detail" />} />
+                <Route path="/tasks/:taskId" element={<TaskDetail api={api} />} />
                 <Route path="/calendar" element={<CalendarPage api={api} />} />
                 <Route path="/tags" element={<PlaceholderPage title="Tags" />} />
                 <Route element={<ProtectedRoute adminOnly />}>

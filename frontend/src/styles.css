@@ -151,6 +151,22 @@ button {
   padding: 1rem;
 }
 
+.page-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-action {
+  background: #155eef;
+  border: 1px solid #155eef;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  display: inline-flex;
+  padding: 0.7rem 0.9rem;
+}
+
 .stack {
   display: grid;
   gap: 1rem;

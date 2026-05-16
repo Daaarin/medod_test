@@ -93,6 +93,7 @@ export function TaskListPage({
   initialFilters = {},
   showScope = true,
   hiddenFilters = [],
+  primaryAction = null,
 }) {
   const [filters, setFilters] = useState(() => ({ ...initialFilters }));
   const hasDateRange = Boolean(filters.from || filters.to);
@@ -108,8 +109,15 @@ export function TaskListPage({
   return (
     <section className="stack">
       <header className="page-header">
-        <p className="eyebrow">Workspace</p>
-        <h2>{title}</h2>
+        <div>
+          <p className="eyebrow">Workspace</p>
+          <h2>{title}</h2>
+        </div>
+        {primaryAction ? (
+          <Link className="page-action" to={primaryAction.to}>
+            {primaryAction.label}
+          </Link>
+        ) : null}
       </header>
       <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
       {tasksQuery.isPending ? <div className="page-state">Loading tasks...</div> : null}
