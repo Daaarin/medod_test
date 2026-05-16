@@ -417,6 +417,74 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(filtered_occurrences.first.fetch("status")).to eq("skipped")
   end
 
+  it "suppresses a planned projection for an executed occurrence in the same scheduled slot" do
+    user = create_user(email: "doctor-executed-projection@example.test", role: :doctor)
+    task = create_task(
+      name: "Executed medicine check",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :recurring
+    )
+    task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 15),
+      date_end: Date.new(2026, 5, 17)
+    )
+    task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-15 10:00"),
+      status: :executed,
+      actual_at: Time.zone.parse("2026-05-15 10:30"),
+      generated_at: Time.current
+    )
+
+    get "/api/v1/tasks",
+        params: { from: "2026-05-15", to: "2026-05-17" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    items = JSON.parse(response.body).fetch("data")
+    day_15_items = items.select { |item| item.dig("attributes", "occurrence", "scheduled_at") == Time.zone.parse("2026-05-15 10:00").iso8601 }
+
+    expect(day_15_items.size).to eq(1)
+    expect(day_15_items.first.dig("attributes", "occurrence", "status")).to eq("executed")
+    expect(items.map { |item| item.dig("attributes", "occurrence", "scheduled_at") }).to match_array(
+      [
+        Time.zone.parse("2026-05-15 10:00").iso8601,
+        Time.zone.parse("2026-05-16 10:00").iso8601,
+        Time.zone.parse("2026-05-17 10:00").iso8601
+      ]
+    )
+  end
+
+  it "projects a recurring next_run_at fallback when no recurrence rule or persisted occurrence exists" do
+    user = create_user(email: "doctor-recurring-next-run@example.test", role: :doctor)
+    task = create_task(
+      name: "Recurring next run fallback",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :recurring,
+      next_run_at: Time.zone.parse("2026-05-16 08:00")
+    )
+
+    get "/api/v1/tasks",
+        params: { from: "2026-05-15", to: "2026-05-16" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    items = JSON.parse(response.body).fetch("data")
+
+    expect(items.size).to eq(1)
+    expect(items.first.dig("id")).to eq("#{task.id}:#{Time.zone.parse('2026-05-16 08:00').iso8601}")
+    expect(items.first.dig("attributes", "occurrence", "scheduled_at")).to eq(Time.zone.parse("2026-05-16 08:00").iso8601)
+    expect(items.first.dig("attributes", "occurrence", "status")).to eq("planned")
+    expect(items.first.dig("attributes", "occurrence", "projected")).to be(true)
+  end
+
   it "projects one-time tasks at next_run_at only when both scheduled timestamps are present" do
     user = create_user(email: "doctor-one-time-projection@example.test", role: :doctor)
     task = create_task(

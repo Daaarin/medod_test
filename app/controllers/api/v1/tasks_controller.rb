@@ -164,6 +164,11 @@ module Api
                   OR tasks.next_run_at BETWEEN :range_start AND :range_end
                 )
               )
+              OR (
+                tasks.task_kind = 'recurring'
+                AND recurrence_rules.id IS NULL
+                AND tasks.next_run_at BETWEEN :range_start AND :range_end
+              )
             SQL
             range_start: range_start,
             range_end: range_end,
@@ -351,6 +356,9 @@ module Api
           if task.one_time?
             scheduled_time = task.next_run_at || task.first_run_at
             return [ scheduled_time ].compact.select { |time| time.between?(range_start, range_end) }
+          elsif task.recurring? && task.recurrence_rule.blank?
+            scheduled_time = task.next_run_at
+            return [ scheduled_time ].compact.select { |time| time.between?(range_start, range_end) }
           end
 
           TaskScheduling::CalendarProjection.call(task: task, range_start: range_start, range_end: range_end)
@@ -358,7 +366,7 @@ module Api
 
         def persisted_occurrence_at?(task, projected_time)
           task.task_occurrences.any? do |occurrence|
-            occurrence_filter_time(occurrence) == projected_time
+            occurrence_filter_time(occurrence) == projected_time || occurrence.scheduled_at == projected_time
           end
         end
 
