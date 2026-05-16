@@ -349,7 +349,8 @@ module Api
 
         def projected_times(task, range_start, range_end)
           if task.one_time?
-            return [ task.first_run_at, task.next_run_at ].compact.uniq.select { |time| time.between?(range_start, range_end) }
+            scheduled_time = task.next_run_at || task.first_run_at
+            return [ scheduled_time ].compact.select { |time| time.between?(range_start, range_end) }
           end
 
           TaskScheduling::CalendarProjection.call(task: task, range_start: range_start, range_end: range_end)

@@ -69,11 +69,29 @@ function taskTags(attributes) {
   return Array.isArray(attributes?.tags) ? attributes.tags : [];
 }
 
+function normalizeOccurrence(occurrence) {
+  if (!occurrence) return null;
+
+  if (occurrence.attributes) {
+    return {
+      id: occurrence.id,
+      ...occurrence.attributes,
+    };
+  }
+
+  return occurrence;
+}
+
+function occurrenceFromPayload(payload) {
+  return normalizeOccurrence(payload?.data?.occurrence ?? payload?.data?.attributes?.occurrence ?? null);
+}
+
 export function TaskDetail({ api }) {
   const { taskId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [occurrence, setOccurrence] = useState(() => location.state?.occurrence || null);
   const [editValues, setEditValues] = useState(() => emptyEditState());
   const [postponedTo, setPostponedTo] = useState("");
   const [skipReason, setSkipReason] = useState("");
@@ -91,7 +109,7 @@ export function TaskDetail({ api }) {
 
   const task = taskQuery.data?.data;
   const attributes = task?.attributes || {};
-  const occurrence = attributes.occurrence || location.state?.occurrence || null;
+  const taskOccurrence = normalizeOccurrence(attributes.occurrence);
   const attachedTags = taskTags(attributes);
   const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
   const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
@@ -99,10 +117,16 @@ export function TaskDetail({ api }) {
   useEffect(() => {
     if (task?.attributes) {
       setEditValues(emptyEditState(attributes));
-      setPostponedTo(toDateTimeInput(occurrence?.scheduled_at || occurrence?.occurs_at || ""));
+      setPostponedTo(toDateTimeInput((taskOccurrence || occurrence)?.scheduled_at || (taskOccurrence || occurrence)?.occurs_at || ""));
       setSkipReason("");
     }
-  }, [attributes, occurrence, task]);
+  }, [attributes, occurrence, task, taskOccurrence]);
+
+  useEffect(() => {
+    if (taskOccurrence) {
+      setOccurrence(taskOccurrence);
+    }
+  }, [taskOccurrence]);
 
   useEffect(() => {
     if (!availableTags.length) {
@@ -129,7 +153,7 @@ export function TaskDetail({ api }) {
       api.updateTask(taskId, {
         name: editValues.name,
         description: editValues.description,
-        completion_date: editValues.completion_date || undefined,
+        completion_date: editValues.completion_date ? editValues.completion_date : null,
       }),
     onSuccess: async () => {
       setFeedback("Task saved.");
@@ -176,7 +200,11 @@ export function TaskDetail({ api }) {
 
   const postponeMutation = useMutation({
     mutationFn: () => api.postponeOccurrence(occurrence.id, localDateTimeToIso(postponedTo)),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      const nextOccurrence = occurrenceFromPayload(data);
+      if (nextOccurrence) {
+        setOccurrence(nextOccurrence);
+      }
       setFeedback("Occurrence postponed.");
       await invalidateTaskData();
     },
@@ -187,7 +215,11 @@ export function TaskDetail({ api }) {
 
   const executeMutation = useMutation({
     mutationFn: () => api.executeOccurrence(occurrence.id),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      const nextOccurrence = occurrenceFromPayload(data);
+      if (nextOccurrence) {
+        setOccurrence(nextOccurrence);
+      }
       setFeedback("Occurrence executed.");
       await invalidateTaskData();
     },
@@ -198,7 +230,11 @@ export function TaskDetail({ api }) {
 
   const skipMutation = useMutation({
     mutationFn: () => api.skipOccurrence(occurrence.id, skipReason || undefined),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      const nextOccurrence = occurrenceFromPayload(data);
+      if (nextOccurrence) {
+        setOccurrence(nextOccurrence);
+      }
       setFeedback("Occurrence skipped.");
       await invalidateTaskData();
     },
@@ -229,7 +265,8 @@ export function TaskDetail({ api }) {
     },
   });
 
-  const canShowOccurrenceActions = Boolean(occurrence?.id) && !occurrence?.projected;
+  const canShowOccurrenceActions =
+    Boolean(occurrence?.id) && !occurrence?.projected && ["planned", "postponed"].includes(occurrence?.status);
 
   const summaryItems = useMemo(
     () => [

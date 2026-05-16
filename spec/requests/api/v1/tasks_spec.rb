@@ -169,7 +169,8 @@ RSpec.describe "Api::V1::Tasks", type: :request do
         headers: auth_headers_for(admin)
 
     expect(response).to have_http_status(:ok)
-    expect(JSON.parse(response.body).dig("data").map { |item| item.dig("attributes", "name") }).to include("Nurse task", "Delegated task")
+    expect(JSON.parse(response.body).dig("data").map { |item| item.dig("attributes", "name") }).to include("Nurse task")
+    expect(JSON.parse(response.body).dig("data").map { |item| item.dig("attributes", "name") }).not_to include("Delegated task")
     expect(JSON.parse(response.body).dig("data").map { |item| item.dig("attributes", "name") }).not_to include("Admin task")
 
     unbonded_task_id = Task.find_by!(name: "Admin task").id
@@ -414,6 +415,29 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     filtered_occurrences = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "occurrence") }
     expect(filtered_occurrences.size).to eq(1)
     expect(filtered_occurrences.first.fetch("status")).to eq("skipped")
+  end
+
+  it "projects one-time tasks at next_run_at only when both scheduled timestamps are present" do
+    user = create_user(email: "doctor-one-time-projection@example.test", role: :doctor)
+    task = create_task(
+      name: "One-time projected check",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :one_time,
+      first_run_at: Time.zone.parse("2026-05-15 08:00"),
+      next_run_at: Time.zone.parse("2026-05-16 08:00")
+    )
+
+    get "/api/v1/tasks",
+        params: { from: "2026-05-15", to: "2026-05-16" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    items = JSON.parse(response.body).fetch("data")
+    expect(items.size).to eq(1)
+    expect(items.first.dig("attributes", "name")).to eq(task.name)
+    expect(items.first.dig("attributes", "occurrence", "scheduled_at")).to eq(Time.zone.parse("2026-05-16 08:00").iso8601)
   end
 
   it "narrows date-filtered task listing to relevant tasks and occurrences in SQL" do
