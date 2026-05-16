@@ -53,6 +53,22 @@ function emptyEditState(attributes) {
   };
 }
 
+function tagId(tag) {
+  return String(tag?.id ?? "");
+}
+
+function tagName(tag) {
+  return tag?.attributes?.name || tag?.name || "Untitled tag";
+}
+
+function tagDescription(tag) {
+  return tag?.attributes?.description || tag?.description || "";
+}
+
+function taskTags(attributes) {
+  return Array.isArray(attributes?.tags) ? attributes.tags : [];
+}
+
 export function TaskDetail({ api }) {
   const { taskId } = useParams();
   const navigate = useNavigate();
@@ -60,16 +76,24 @@ export function TaskDetail({ api }) {
   const [editValues, setEditValues] = useState(() => emptyEditState());
   const [postponedTo, setPostponedTo] = useState("");
   const [skipReason, setSkipReason] = useState("");
+  const [selectedTagId, setSelectedTagId] = useState("");
   const [feedback, setFeedback] = useState("");
 
   const taskQuery = useQuery({
     queryKey: ["task", taskId],
     queryFn: () => api.task(taskId),
   });
+  const tagsQuery = useQuery({
+    queryKey: ["tags"],
+    queryFn: () => api.tags(),
+  });
 
   const task = taskQuery.data?.data;
   const attributes = task?.attributes || {};
   const occurrence = attributes.occurrence || null;
+  const attachedTags = taskTags(attributes);
+  const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
+  const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
 
   useEffect(() => {
     if (task?.attributes) {
@@ -79,9 +103,24 @@ export function TaskDetail({ api }) {
     }
   }, [attributes, occurrence, task]);
 
+  useEffect(() => {
+    if (!availableTags.length) {
+      if (selectedTagId) {
+        setSelectedTagId("");
+      }
+      return;
+    }
+
+    const selectedStillAvailable = availableTags.some((tag) => tagId(tag) === selectedTagId);
+    if (!selectedTagId || !selectedStillAvailable) {
+      setSelectedTagId(tagId(availableTags[0]));
+    }
+  }, [availableTags, selectedTagId]);
+
   const invalidateTaskData = async () => {
     await queryClient.invalidateQueries({ queryKey: ["task", taskId] });
     await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    await queryClient.invalidateQueries({ queryKey: ["tags"] });
   };
 
   const updateMutation = useMutation({
@@ -160,6 +199,28 @@ export function TaskDetail({ api }) {
     mutationFn: () => api.skipOccurrence(occurrence.id, skipReason || undefined),
     onSuccess: async () => {
       setFeedback("Occurrence skipped.");
+      await invalidateTaskData();
+    },
+    onError: (error) => {
+      setFeedback(mutationError(error));
+    },
+  });
+
+  const attachMutation = useMutation({
+    mutationFn: () => api.attachTag(taskId, selectedTagId),
+    onSuccess: async () => {
+      setFeedback("Tag attached.");
+      await invalidateTaskData();
+    },
+    onError: (error) => {
+      setFeedback(mutationError(error));
+    },
+  });
+
+  const detachMutation = useMutation({
+    mutationFn: (tagIdentifier) => api.detachTag(taskId, tagIdentifier),
+    onSuccess: async () => {
+      setFeedback("Tag detached.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -287,6 +348,56 @@ export function TaskDetail({ api }) {
             </div>
           ))}
         </dl>
+      </div>
+
+      <div className="panel stack">
+        <h3>Tags</h3>
+        {tagsQuery.isPending ? <div className="page-state">Loading tags...</div> : null}
+        {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
+        {attachedTags.length ? (
+          <div className="stack">
+            {attachedTags.map((tag) => (
+              <div className="row-between" key={tagId(tag)}>
+                <div>
+                  <strong>{tagName(tag)}</strong>
+                  {tagDescription(tag) ? <p>{tagDescription(tag)}</p> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => detachMutation.mutate(tagId(tag))}
+                  disabled={detachMutation.isPending}
+                >
+                  Detach
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="page-state">This response does not include attached tags yet.</div>
+        )}
+        {!tagsQuery.isPending && availableTags.length ? (
+          <div className="toolbar">
+            <label>
+              Attach tag
+              <select value={selectedTagId} onChange={(event) => setSelectedTagId(event.target.value)}>
+                {availableTags.map((tag) => (
+                  <option key={tagId(tag)} value={tagId(tag)}>
+                    {tagName(tag)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => attachMutation.mutate()}
+              disabled={!selectedTagId || attachMutation.isPending}
+            >
+              Attach
+            </button>
+          </div>
+        ) : null}
+        {attachMutation.isError ? <div className="alert error">{mutationError(attachMutation.error)}</div> : null}
+        {detachMutation.isError ? <div className="alert error">{mutationError(detachMutation.error)}</div> : null}
       </div>
 
       {occurrence ? (

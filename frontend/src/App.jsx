@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQueryClient } from "@
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { createApiClient } from "./api/client";
 import { createEndpoints } from "./api/endpoints";
+import { AdminPage } from "./admin/AdminPage";
 import { AuthProvider } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
@@ -11,6 +12,7 @@ import { CalendarPage } from "./calendar/CalendarPage";
 import { TaskDetail } from "./tasks/TaskDetail";
 import { TaskForm } from "./tasks/TaskForm";
 import { TaskListPage, TasksPage } from "./tasks/TaskList";
+import { TagsPage } from "./tags/TagsPage";
 
 const queryClient = new QueryClient();
 const client = createApiClient({ getToken: getStoredToken, onUnauthorized: notifyUnauthorized });
@@ -79,9 +81,9 @@ export default function App() {
                 />
                 <Route path="/tasks/:taskId" element={<TaskDetail api={api} />} />
                 <Route path="/calendar" element={<CalendarPage api={api} />} />
-                <Route path="/tags" element={<PlaceholderPage title="Tags" />} />
+                <Route path="/tags" element={<TagsPage api={api} />} />
                 <Route element={<ProtectedRoute adminOnly />}>
-                  <Route path="/admin" element={<PlaceholderPage title="Admin" />} />
+                  <Route path="/admin" element={<AdminPage api={api} />} />
                 </Route>
               </Route>
             </Route>
