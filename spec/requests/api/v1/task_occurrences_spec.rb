@@ -187,12 +187,17 @@ RSpec.describe "Api::V1::TaskOccurrences", type: :request do
       responsible: user,
       scheduled_at: Time.zone.parse("2026-05-15 10:00")
     )
+    active_tag = Tag.create!(name: "Active tag")
+    inactive_tag = Tag.create!(name: "Inactive tag")
     sibling = task.task_occurrences.create!(
       scheduled_at: Time.zone.parse("2026-05-14 10:00"),
       status: :executed,
       actual_at: Time.zone.parse("2026-05-14 10:01")
     )
     current_occurrence = task.task_occurrences.find_by!(status: :planned)
+    TaskTag.attach!(task: task, tag: active_tag)
+    TaskTag.attach!(task: task, tag: inactive_tag)
+    inactive_tag.deactivate!
 
     travel_to(Time.zone.parse("2026-05-15 10:01")) do
       expect do
@@ -206,6 +211,15 @@ RSpec.describe "Api::V1::TaskOccurrences", type: :request do
     expected_next_run_at = Time.zone.parse("2026-05-16 10:00").iso8601
     expect(json.dig("data", "occurrence", "attributes", "status")).to eq("executed")
     expect(json.dig("data", "task", "attributes", "next_run_at")).to eq(expected_next_run_at)
+    tags = json.dig("data", "task", "attributes", "tags")
+    expect(tags.map { |tag| tag.dig("id") }).to eq([ active_tag.id.to_s ])
+    expect(tags.first).to include("id" => active_tag.id.to_s, "type" => "tag")
+    expect(tags.first.fetch("attributes")).to include(
+      "name" => "Active tag",
+      "description" => nil,
+      "is_system_tag" => false,
+      "deactivated_at" => nil
+    )
 
     task.reload
     expect(task.status).to eq("ongoing")

@@ -17,7 +17,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: sh -lc "bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0 -p 3000"
+    command: sh -lc "bundle check || bundle install; bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0 -p 3000"
     depends_on:
       db:
         condition: service_healthy

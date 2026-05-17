@@ -96,32 +96,7 @@ module Api
         end
 
         def task_payload(task)
-          {
-            id: task.id.to_s,
-            type: "task",
-            attributes: task_attributes(task)
-          }
-        end
-
-        def task_attributes(task)
-          {
-            name: task.name,
-            description: task.description,
-            completion_date: task.completion_date&.iso8601,
-            status: task.status,
-            task_kind: task.task_kind,
-            creator_id: task.creator_id,
-            responsible_id: task.responsible_id,
-            delegated_user_id: task.delegated_user_id,
-            first_run_at: task.first_run_at&.iso8601,
-            next_run_at: task.next_run_at&.iso8601,
-            accepted_at: task.accepted_at&.iso8601,
-            completed_at: task.completed_at&.iso8601,
-            cancelled_at: task.cancelled_at&.iso8601,
-            cancellation_reason: task.cancellation_reason,
-            end_reason: task.end_reason,
-            deactivated_at: task.deactivated_at&.iso8601
-          }
+          Api::V1::TaskPayloadPresenter.render(task)
         end
 
         def occurrence_payload(occurrence)

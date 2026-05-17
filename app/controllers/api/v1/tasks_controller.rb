@@ -1,6 +1,8 @@
 module Api
   module V1
     class TasksController < ApplicationController
+      MAX_DATE_RANGE_DAYS = 31
+
       rescue_from ActionController::BadRequest, with: :render_bad_request
 
       before_action :authenticate_user!
@@ -8,6 +10,7 @@ module Api
       before_action :authorize_task_write!, only: %i[update destroy]
 
       def index
+        occurrence_status_filter if params[:occurrence_status].present?
         tasks = filtered_tasks.to_a
         preload_date_filtered_occurrences!(tasks) if date_filter_requested?
 
@@ -130,6 +133,7 @@ module Api
 
           from_date ||= to_date
           to_date ||= from_date
+          validate_date_range!(from_date, to_date)
 
           [ from_date.beginning_of_day, to_date.end_of_day ]
         end
@@ -382,7 +386,11 @@ module Api
         end
 
         def occurrence_status_filter
-          params[:occurrence_status].presence
+          value = params[:occurrence_status].presence
+          return if value.blank?
+          return value if TaskOccurrence.statuses.key?(value)
+
+          raise ActionController::BadRequest, "occurrence_status is not included in the list"
         end
 
         def occurrence_status_matches?(status)
@@ -397,18 +405,23 @@ module Api
           render json: { error: error.message }, status: :bad_request
         end
 
+        def validate_date_range!(from_date, to_date)
+          return if (to_date - from_date).to_i + 1 <= MAX_DATE_RANGE_DAYS
+
+          raise ActionController::BadRequest, "date range cannot exceed #{MAX_DATE_RANGE_DAYS} days"
+        end
+
         def task_payload(task, occurrence: nil, occurrence_time: nil, projected_occurrence_time: nil)
           occurrence_data = occurrence_attributes(
             occurrence: occurrence,
             occurrence_time: occurrence_time,
             projected_occurrence_time: projected_occurrence_time
           )
+          payload = Api::V1::TaskPayloadPresenter.render(task)
 
-          {
-            id: occurrence_data ? "#{task.id}:#{occurrence_data.fetch(:scheduled_at)}" : task.id.to_s,
-            type: "task",
-            attributes: task_attributes(task).merge(occurrence_data ? { occurrence: occurrence_data } : {})
-          }
+          payload[:id] = "#{task.id}:#{occurrence_data.fetch(:scheduled_at)}" if occurrence_data
+          payload[:attributes] = payload.fetch(:attributes).merge(occurrence: occurrence_data) if occurrence_data
+          payload
         end
 
         def occurrence_attributes(occurrence:, occurrence_time:, projected_occurrence_time:)
@@ -437,50 +450,6 @@ module Api
               occurs_at: projected_occurrence_time.iso8601
             }
           end
-        end
-
-        def task_attributes(task)
-          {
-            name: task.name,
-            description: task.description,
-            completion_date: task.completion_date&.iso8601,
-            status: task.status,
-            task_kind: task.task_kind,
-            creator_id: task.creator_id,
-            responsible_id: task.responsible_id,
-            delegated_user_id: task.delegated_user_id,
-            first_run_at: task.first_run_at&.iso8601,
-            next_run_at: task.next_run_at&.iso8601,
-            accepted_at: task.accepted_at&.iso8601,
-            completed_at: task.completed_at&.iso8601,
-            cancelled_at: task.cancelled_at&.iso8601,
-            cancellation_reason: task.cancellation_reason,
-            end_reason: task.end_reason,
-            deactivated_at: task.deactivated_at&.iso8601,
-            tags: task_tags(task)
-          }
-        end
-
-        def task_tags(task)
-          task.task_tags
-              .select { |task_tag| task_tag.active? && task_tag.tag&.active? }
-              .sort_by { |task_tag| [ task_tag.created_at || Time.zone.at(0), task_tag.id || 0 ] }
-              .map do |task_tag|
-            tag_payload(task_tag.tag)
-          end
-        end
-
-        def tag_payload(tag)
-          {
-            id: tag.id.to_s,
-            type: "tag",
-            attributes: {
-              name: tag.name,
-              description: tag.description,
-              is_system_tag: tag.is_system_tag,
-              deactivated_at: tag.deactivated_at&.iso8601
-            }
-          }
         end
     end
   end

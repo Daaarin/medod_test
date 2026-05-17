@@ -229,6 +229,35 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(names).to eq([ "Ongoing task" ])
   end
 
+  it "rejects oversized date projection windows" do
+    user = create_user(email: "doctor-wide-range@example.test", role: :doctor)
+
+    get "/api/v1/tasks",
+        params: {
+          from: "2026-05-01",
+          to: "2026-06-15"
+        },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:bad_request)
+    expect(JSON.parse(response.body)).to include("error" => "date range cannot exceed 31 days")
+  end
+
+  it "rejects invalid occurrence status filters" do
+    user = create_user(email: "doctor-invalid-occurrence-status@example.test", role: :doctor)
+
+    get "/api/v1/tasks",
+        params: {
+          from: "2026-05-15",
+          to: "2026-05-17",
+          occurrence_status: "planed"
+        },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:bad_request)
+    expect(JSON.parse(response.body)).to include("error" => "occurrence_status is not included in the list")
+  end
+
   it "composes lifecycle status filtering with delegated_to_me scope" do
     creator = create_user(email: "creator-status-scope@example.test", role: :doctor)
     delegate = create_user(email: "delegate-status-scope@example.test", role: :nurse)

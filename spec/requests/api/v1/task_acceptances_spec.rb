@@ -28,12 +28,27 @@ RSpec.describe "Api::V1::TaskAcceptances", type: :request do
       delegated_user: delegate,
       status: :pending_acceptance
     )
+    active_tag = Tag.create!(name: "Active tag")
+    inactive_tag = Tag.create!(name: "Inactive tag")
+    TaskTag.attach!(task: task, tag: active_tag)
+    TaskTag.attach!(task: task, tag: inactive_tag)
+    inactive_tag.deactivate!
 
     expect do
       post "/api/v1/tasks/#{task.id}/accept", headers: auth_headers_for(delegate)
     end.to change(TaskEvent, :count).by(1)
 
     expect(response).to have_http_status(:ok)
+    json = JSON.parse(response.body)
+    tags = json.dig("data", "attributes", "tags")
+    expect(tags.map { |tag| tag.dig("id") }).to eq([ active_tag.id.to_s ])
+    expect(tags.first).to include("id" => active_tag.id.to_s, "type" => "tag")
+    expect(tags.first.fetch("attributes")).to include(
+      "name" => "Active tag",
+      "description" => nil,
+      "is_system_tag" => false,
+      "deactivated_at" => nil
+    )
 
     task.reload
     expect(task.responsible).to eq(delegate)

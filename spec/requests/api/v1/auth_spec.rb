@@ -1,6 +1,38 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Auth", type: :request do
+  it "throttles repeated failed login attempts from the same IP and normalized email" do
+    User.create!(
+      email: "doctor@example.test",
+      password: "password123",
+      role: :doctor,
+      name: "Ivan",
+      last_name: "Petrov"
+    )
+
+    headers = { "REMOTE_ADDR" => "203.0.113.10" }
+
+    5.times do |attempt|
+      post "/api/v1/auth/login",
+           params: {
+             email: attempt.even? ? "  DOCTOR@example.test " : "doctor@example.test",
+             password: "wrong-password"
+           },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    post "/api/v1/auth/login",
+         params: { email: "doctor@example.test", password: "wrong-password" },
+         headers: headers,
+         as: :json
+
+    expect(response).to have_http_status(:too_many_requests)
+    expect(JSON.parse(response.body)).to include("error" => "Too many login attempts")
+  end
+
   it "authenticates a user and returns a bearer token with user data" do
     User.create!(
       email: "doctor@example.test",
