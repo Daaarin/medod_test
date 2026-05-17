@@ -83,8 +83,8 @@ export function TaskForm({ onSubmit, submitLabel = "Создать задачу"
   }
 
   return (
-    <form className="stack" onSubmit={submit}>
-      <div className="form-grid">
+    <form className="stack task-form" onSubmit={submit}>
+      <div className="form-grid task-form-grid">
         <label>
           Название
           <input value={task.name} onChange={(event) => setField("name", event.target.value)} required />

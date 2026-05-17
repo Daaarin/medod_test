@@ -27,7 +27,7 @@ module Api
         task = Task.new(create_task_params)
         task.creator = current_user
         task.task_kind = "one_time" if task.task_kind.blank?
-        task.status = initial_status_for(task)
+        task.status = initial_status_for(task, assign_to_self: assign_to_self?)
         task.responsible = current_user if assign_to_self?
         task.responsible = nil if task.delegated_user_id.present?
 
@@ -36,7 +36,7 @@ module Api
         else
           render_unprocessable_entity(task)
         end
-      end
+    end
 
       def update
         return unless valid_task_date_params?(:update)
@@ -243,8 +243,9 @@ module Api
           ActiveModel::Type::Boolean.new.cast(params.dig(:task, :assign_to_self))
         end
 
-        def initial_status_for(task)
+        def initial_status_for(task, assign_to_self:)
           return "pending_acceptance" if task.delegated_user_id.present?
+          return "ongoing" if assign_to_self || task.valid?
 
           "draft"
         end

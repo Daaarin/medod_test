@@ -30,7 +30,7 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     task_id = body.dig("data", "id")
 
     expect(body.dig("data", "attributes", "name")).to eq("Morning rounds")
-    expect(body.dig("data", "attributes", "status")).to eq("draft")
+    expect(body.dig("data", "attributes", "status")).to eq("ongoing")
     expect(body.dig("data", "attributes", "task_kind")).to eq("one_time")
     expect(body.dig("data", "attributes", "creator_id")).to eq(user.id)
     expect(body.dig("data", "attributes", "responsible_id")).to eq(user.id)
@@ -53,7 +53,7 @@ RSpec.describe "Api::V1::Tasks", type: :request do
 
     expect(response).to have_http_status(:ok)
     expect(JSON.parse(response.body).dig("data", "attributes", "description")).to eq("Check assigned patients and notes")
-    expect(JSON.parse(response.body).dig("data", "attributes", "status")).to eq("draft")
+    expect(JSON.parse(response.body).dig("data", "attributes", "status")).to eq("ongoing")
     expect(JSON.parse(response.body).dig("data", "attributes", "responsible_id")).to eq(user.id)
     expect(JSON.parse(response.body).dig("data", "attributes", "delegated_user_id")).to be_nil
 

@@ -21,7 +21,7 @@ export function TaskFilters({ filters, onChange, showScope = true, hiddenFilters
   }
 
   return (
-    <div className="toolbar">
+    <div className="toolbar filter-toolbar">
       {showScope && !isHidden("scope", hiddenFilters) ? (
         <label>
           Область
@@ -62,7 +62,11 @@ export function TaskFilters({ filters, onChange, showScope = true, hiddenFilters
               </option>
             ))}
           </select>
-          {!hasDateRange ? <span id="occurrence-status-help">Нужен период.</span> : null}
+          {!hasDateRange ? (
+            <span className="field-help" id="occurrence-status-help">
+              Нужен период.
+            </span>
+          ) : null}
         </label>
       ) : null}
       {!isHidden("from", hiddenFilters) ? (
