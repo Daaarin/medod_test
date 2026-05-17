@@ -84,8 +84,12 @@ export function TaskListPage({
   showScope = true,
   hiddenFilters = [],
   primaryAction = null,
+  defaultFromToday = true,
 }) {
-  const [filters, setFilters] = useState(() => ({ from: todayIsoDate(), ...initialFilters }));
+  const [filters, setFilters] = useState(() => ({
+    ...(defaultFromToday ? { from: todayIsoDate() } : {}),
+    ...initialFilters,
+  }));
   const queryFilters = useMemo(() => compactQueryFilters(filters), [filters]);
 
   const tasksQuery = useQuery({

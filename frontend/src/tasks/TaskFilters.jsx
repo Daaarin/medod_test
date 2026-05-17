@@ -7,6 +7,7 @@ import {
   taskStatuses,
   statusLabels,
 } from "./taskConstants";
+import { formatDateInputValue, parseDateInputValue } from "../utils/display";
 
 function isHidden(field, hiddenFilters) {
   return hiddenFilters.includes(field);
@@ -58,13 +59,25 @@ export function TaskFilters({ filters, onChange, showScope = true, hiddenFilters
       {!isHidden("from", hiddenFilters) ? (
         <label>
           С
-          <input type="date" value={filters.from || ""} onChange={(event) => setFilter("from", event.target.value)} />
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="ДД-ММ-ГГГГ"
+            value={formatDateInputValue(filters.from)}
+            onChange={(event) => setFilter("from", parseDateInputValue(event.target.value))}
+          />
         </label>
       ) : null}
       {!isHidden("to", hiddenFilters) ? (
         <label>
           По
-          <input type="date" value={filters.to || ""} onChange={(event) => setFilter("to", event.target.value)} />
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="ДД-ММ-ГГГГ"
+            value={formatDateInputValue(filters.to)}
+            onChange={(event) => setFilter("to", parseDateInputValue(event.target.value))}
+          />
         </label>
       ) : null}
     </div>

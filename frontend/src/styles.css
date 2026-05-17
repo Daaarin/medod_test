@@ -438,7 +438,7 @@ button:active {
 }
 
 .task-assignee-row {
-  align-items: start;
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
@@ -457,6 +457,7 @@ button:active {
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
+  min-height: 3.25rem;
 }
 
 .switch-control-body {
@@ -498,6 +499,12 @@ button:active {
 
 .switch-control input:checked + .switch-track .switch-thumb {
   transform: translateX(1.35rem);
+}
+
+.task-delegate-select {
+  display: grid;
+  gap: 0.35rem;
+  align-content: center;
 }
 
 .recurrence-panel {

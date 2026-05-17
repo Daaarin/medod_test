@@ -46,7 +46,9 @@ export function RecurrenceFields({ value, onChange, nextRunPreview = "" }) {
         <label>
           Дата начала
           <input
-            type="date"
+            type="text"
+            inputMode="numeric"
+            placeholder="ДД-ММ-ГГГГ"
             value={value.date_start || ""}
             onChange={(event) => setNestedField(value, onChange, "date_start", event.target.value)}
           />
@@ -55,7 +57,9 @@ export function RecurrenceFields({ value, onChange, nextRunPreview = "" }) {
         <label>
           Дата окончания
           <input
-            type="date"
+            type="text"
+            inputMode="numeric"
+            placeholder="ДД-ММ-ГГГГ"
             value={value.date_end || ""}
             onChange={(event) => setNestedField(value, onChange, "date_end", event.target.value)}
           />
@@ -64,7 +68,9 @@ export function RecurrenceFields({ value, onChange, nextRunPreview = "" }) {
         <label>
           Время выполнения
           <input
-            type="time"
+            type="text"
+            inputMode="numeric"
+            placeholder="ЧЧ:ММ"
             value={value.execution_time || "12:00"}
             onChange={(event) => setNestedField(value, onChange, "execution_time", event.target.value)}
           />

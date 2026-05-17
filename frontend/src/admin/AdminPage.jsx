@@ -41,7 +41,7 @@ export function AdminPage({ api }) {
         {!healthQuery.isPending && !healthQuery.isError ? <div>Доступен</div> : null}
       </div>
 
-      <TaskListPage api={api} title="Все доступные задачи" showScope={false} hiddenFilters={["status"]} />
+      <TaskListPage api={api} title="Все доступные задачи" showScope={false} hiddenFilters={["status"]} defaultFromToday={false} />
       <TagsPage api={api} includeDeactivated />
     </section>
   );
