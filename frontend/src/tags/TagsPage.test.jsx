@@ -28,8 +28,8 @@ describe("TagsPage", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText("Отчётность")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Отчётность")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Деактивировать" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Сохранить тег" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeDisabled();
   });
 });

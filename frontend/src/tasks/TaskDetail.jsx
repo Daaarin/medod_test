@@ -296,60 +296,14 @@ export function TaskDetail({ api }) {
   }
 
   return (
-    <section className="stack">
-      <header className="page-header">
-        <p className="eyebrow">Задача</p>
-        <h2>{attributes.name || "Без названия"}</h2>
-        <p>{attributes.description || "Описание не добавлено"}</p>
-      </header>
-
-      {feedback ? <div className="alert">{feedback}</div> : null}
-
-      <div className="panel">
-        <h3>Редактирование</h3>
-        <form
-          className="stack"
-          onSubmit={(event) => {
-            event.preventDefault();
-            updateMutation.mutate();
-          }}
-        >
-          <div className="form-grid">
-            <label>
-              Название
-              <input
-                value={editValues.name}
-                onChange={(event) => setEditValues((current) => ({ ...current, name: event.target.value }))}
-              />
-            </label>
-            <label>
-              Дата завершения
-              <input
-                type="date"
-                value={editValues.completion_date}
-                onChange={(event) =>
-                  setEditValues((current) => ({ ...current, completion_date: event.target.value }))
-                }
-              />
-            </label>
-          </div>
-          <label>
-            Описание
-            <textarea
-              value={editValues.description}
-              onChange={(event) => setEditValues((current) => ({ ...current, description: event.target.value }))}
-            />
-          </label>
-          {updateMutation.isError ? <div className="alert error">{mutationError(updateMutation.error)}</div> : null}
-          <button type="submit" disabled={updateMutation.isPending}>
-            Сохранить
-          </button>
-        </form>
-      </div>
-
-      <div className="panel">
-        <h3>Действия</h3>
-        <div className="toolbar">
+    <section className="stack detail-page">
+      <header className="detail-topbar">
+        <div>
+          <p className="eyebrow">Задача</p>
+          <h2>{attributes.name || "Без названия"}</h2>
+          <p className="header-copy">{attributes.description || "Описание не добавлено"}</p>
+        </div>
+        <div className="detail-actions">
           <button
             type="button"
             onClick={() => acceptMutation.mutate()}
@@ -372,143 +326,190 @@ export function TaskDetail({ api }) {
             Деактивировать
           </button>
         </div>
-        {acceptMutation.isError ? <div className="alert error">{mutationError(acceptMutation.error)}</div> : null}
-        {declineMutation.isError ? <div className="alert error">{mutationError(declineMutation.error)}</div> : null}
-        {deactivateMutation.isError ? <div className="alert error">{mutationError(deactivateMutation.error)}</div> : null}
-      </div>
+      </header>
 
-      <div className="panel">
-        <h3>Детали задачи</h3>
-        <dl className="meta-grid">
-          {summaryItems.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{displayValue(value)}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      {feedback ? <div className="alert">{feedback}</div> : null}
 
-      <div className="panel stack">
-        <h3>Теги</h3>
-        {tagsQuery.isPending ? <div className="page-state">Загружаем теги...</div> : null}
-        {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
-        {attachedTags.length ? (
-          <div className="stack">
-            {attachedTags.map((tag) => (
-              <div className="row-between" key={tagId(tag)}>
-                <div>
-                  <strong>{tagName(tag)}</strong>
-                  {tagDescription(tag) ? <p>{tagDescription(tag)}</p> : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => detachMutation.mutate(tagId(tag))}
-                  disabled={detachMutation.isPending}
-                >
-                  Снять
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="page-state">У задачи пока нет тегов.</div>
-        )}
-        {!tagsQuery.isPending && availableTags.length ? (
-          <div className="toolbar">
-            <label>
-              Добавить тег
-              <select value={selectedTagId} onChange={(event) => setSelectedTagId(event.target.value)}>
-                {availableTags.map((tag) => (
-                  <option key={tagId(tag)} value={tagId(tag)}>
-                    {tagName(tag)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => attachMutation.mutate()}
-              disabled={!selectedTagId || attachMutation.isPending}
+      <div className="detail-layout">
+        <div className="detail-column">
+          <section className="detail-panel">
+            <h3>Основная информация</h3>
+            <form
+              className="stack"
+              onSubmit={(event) => {
+                event.preventDefault();
+                updateMutation.mutate();
+              }}
             >
-              Добавить
-            </button>
-          </div>
-        ) : null}
-        {attachMutation.isError ? <div className="alert error">{mutationError(attachMutation.error)}</div> : null}
-        {detachMutation.isError ? <div className="alert error">{mutationError(detachMutation.error)}</div> : null}
-      </div>
-
-      {occurrence ? (
-        <div className="panel">
-          <h3>Выполнение</h3>
-          <dl className="meta-grid">
-            <div>
-              <dt>Статус</dt>
-              <dd>{labelFrom(occurrenceStatusLabels, occurrence.status, "—")}</dd>
-            </div>
-            <div>
-              <dt>Запланировано</dt>
-              <dd>{displayValue(occurrence.scheduled_at)}</dd>
-            </div>
-            <div>
-              <dt>Фактически</dt>
-              <dd>{displayValue(occurrence.actual_at)}</dd>
-            </div>
-            <div>
-              <dt>Перенесено на</dt>
-              <dd>{displayValue(occurrence.postponed_to)}</dd>
-            </div>
-            <div>
-              <dt>Причина пропуска</dt>
-              <dd>{displayValue(occurrence.skip_reason)}</dd>
-            </div>
-            <div>
-              <dt>Сгенерировано</dt>
-              <dd>{displayValue(occurrence.generated_at)}</dd>
-            </div>
-          </dl>
-
-          {canShowOccurrenceActions ? (
-            <div className="stack">
+              <div className="form-grid">
+                <label>
+                  Название
+                  <input
+                    value={editValues.name}
+                    onChange={(event) => setEditValues((current) => ({ ...current, name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Дата завершения
+                  <input
+                    type="date"
+                    value={editValues.completion_date}
+                    onChange={(event) =>
+                      setEditValues((current) => ({ ...current, completion_date: event.target.value }))
+                    }
+                  />
+                </label>
+              </div>
               <label>
-                Перенести на
-                <input
-                  type="datetime-local"
-                  value={postponedTo}
-                  onChange={(event) => setPostponedTo(event.target.value)}
+                Описание
+                <textarea
+                  value={editValues.description}
+                  onChange={(event) => setEditValues((current) => ({ ...current, description: event.target.value }))}
                 />
               </label>
+              {updateMutation.isError ? <div className="alert error">{mutationError(updateMutation.error)}</div> : null}
+              <button type="submit" disabled={updateMutation.isPending}>
+                Сохранить
+              </button>
+            </form>
+          </section>
+
+          <section className="detail-panel stack">
+            <h3>Теги</h3>
+            {tagsQuery.isPending ? <div className="page-state">Загружаем теги...</div> : null}
+            {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
+            {attachedTags.length ? (
+              <div className="detail-inline-grid">
+                {attachedTags.map((tag) => (
+                  <div className="row-between" key={tagId(tag)}>
+                    <div>
+                      <strong>{tagName(tag)}</strong>
+                      {tagDescription(tag) ? <p className="muted-line">{tagDescription(tag)}</p> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => detachMutation.mutate(tagId(tag))}
+                      disabled={detachMutation.isPending}
+                    >
+                      Снять
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="page-state">У задачи пока нет тегов.</div>
+            )}
+            {!tagsQuery.isPending && availableTags.length ? (
               <div className="toolbar">
+                <label>
+                  Добавить тег
+                  <select value={selectedTagId} onChange={(event) => setSelectedTagId(event.target.value)}>
+                    {availableTags.map((tag) => (
+                      <option key={tagId(tag)} value={tagId(tag)}>
+                        {tagName(tag)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
-                  onClick={() => postponeMutation.mutate()}
-                  disabled={postponeMutation.isPending || !postponedTo}
+                  onClick={() => attachMutation.mutate()}
+                  disabled={!selectedTagId || attachMutation.isPending}
                 >
-                  Перенести
-                </button>
-                <button type="button" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending}>
-                  Выполнить
-                </button>
-                <label>
-                  Причина пропуска
-                  <input value={skipReason} onChange={(event) => setSkipReason(event.target.value)} />
-                </label>
-                <button type="button" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
-                  Пропустить
+                  Добавить
                 </button>
               </div>
-              {postponeMutation.isError ? <div className="alert error">{mutationError(postponeMutation.error)}</div> : null}
-              {executeMutation.isError ? <div className="alert error">{mutationError(executeMutation.error)}</div> : null}
-              {skipMutation.isError ? <div className="alert error">{mutationError(skipMutation.error)}</div> : null}
-            </div>
-          ) : (
-            <div className="page-state">
-              {occurrence.projected ? "Плановое выполнение доступно только для просмотра." : "Для этого выполнения нет действий."}
-            </div>
-          )}
+            ) : null}
+            {attachMutation.isError ? <div className="alert error">{mutationError(attachMutation.error)}</div> : null}
+            {detachMutation.isError ? <div className="alert error">{mutationError(detachMutation.error)}</div> : null}
+          </section>
         </div>
-      ) : null}
+
+        <div className="detail-column">
+          <section className="detail-summary-card">
+            <h3>Детали задачи</h3>
+            <dl className="detail-summary-table">
+              {summaryItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{displayValue(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          {occurrence ? (
+            <section className="detail-panel stack">
+              <h3>Временная шкала / Статистика</h3>
+              <dl className="detail-summary-table">
+                <div>
+                  <dt>Статус</dt>
+                  <dd>{labelFrom(occurrenceStatusLabels, occurrence.status, "—")}</dd>
+                </div>
+                <div>
+                  <dt>Запланировано</dt>
+                  <dd>{displayValue(occurrence.scheduled_at)}</dd>
+                </div>
+                <div>
+                  <dt>Фактически</dt>
+                  <dd>{displayValue(occurrence.actual_at)}</dd>
+                </div>
+                <div>
+                  <dt>Перенесено на</dt>
+                  <dd>{displayValue(occurrence.postponed_to)}</dd>
+                </div>
+                <div>
+                  <dt>Причина пропуска</dt>
+                  <dd>{displayValue(occurrence.skip_reason)}</dd>
+                </div>
+                <div>
+                  <dt>Сгенерировано</dt>
+                  <dd>{displayValue(occurrence.generated_at)}</dd>
+                </div>
+              </dl>
+
+              {canShowOccurrenceActions ? (
+                <div className="detail-actions-stack">
+                  <label>
+                    Перенести на
+                    <input
+                      type="datetime-local"
+                      value={postponedTo}
+                      onChange={(event) => setPostponedTo(event.target.value)}
+                    />
+                  </label>
+                  <div className="toolbar">
+                    <button
+                      type="button"
+                      onClick={() => postponeMutation.mutate()}
+                      disabled={postponeMutation.isPending || !postponedTo}
+                    >
+                      Перенести
+                    </button>
+                    <button type="button" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending}>
+                      Выполнить
+                    </button>
+                    <label>
+                      Причина пропуска
+                      <input value={skipReason} onChange={(event) => setSkipReason(event.target.value)} />
+                    </label>
+                    <button type="button" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
+                      Пропустить
+                    </button>
+                  </div>
+                  {postponeMutation.isError ? <div className="alert error">{mutationError(postponeMutation.error)}</div> : null}
+                  {executeMutation.isError ? <div className="alert error">{mutationError(executeMutation.error)}</div> : null}
+                  {skipMutation.isError ? <div className="alert error">{mutationError(skipMutation.error)}</div> : null}
+                </div>
+              ) : (
+                <div className="page-state">
+                  {occurrence.projected ? "Плановое выполнение доступно только для просмотра." : "Для этого выполнения нет действий."}
+                </div>
+              )}
+            </section>
+          ) : null}
+        </div>
+      </div>
     </section>
   );
 }

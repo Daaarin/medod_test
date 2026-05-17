@@ -26,6 +26,18 @@ function displayValue(value) {
   return value ?? "—";
 }
 
+function formatDate(value) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
 function formatDateTime(value) {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -34,6 +46,7 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "short",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
@@ -48,50 +61,40 @@ export function TaskRow({ task }) {
   const occurrence = attributes.occurrence ?? null;
   const baseTaskId = String(task?.id ?? "").split(":")[0];
   const occurrenceTime = occurrence?.occurs_at || occurrence?.scheduled_at;
-  const occurrenceLabel = occurrence?.projected ? "План" : "Выполнение";
+  const planningTime = attributes.first_run_at || attributes.next_run_at || occurrenceTime;
+  const dueDate = attributes.completion_date;
 
   return (
-    <article className="table-card">
-      <div className="task-row-header">
-        <div className="task-row-main">
-          <h3>{rowTitle(task)}</h3>
-          <p>{attributes.description || "Описание не добавлено"}</p>
-        </div>
+    <tr>
+      <td className="task-title-cell">
+        <strong>{rowTitle(task)}</strong>
+        <p>{attributes.description || "Описание не добавлено"}</p>
+      </td>
+      <td className="task-meta">
+        <span className="task-row-badge">
+          <span className="status-badge">{labelFrom(statusLabels, attributes.status, "—")}</span>
+          {occurrence ? (
+            <span className="task-subline">
+              {labelFrom(occurrenceStatusLabels, occurrence.status, "—")}
+              {occurrenceTime ? ` • ${formatDateTime(occurrenceTime)}` : ""}
+            </span>
+          ) : null}
+        </span>
+      </td>
+      <td>{labelFrom(taskKindLabels, attributes.task_kind, "—")}</td>
+      <td className="task-meta">{displayValue(attributes.creator_id)}</td>
+      <td className="task-meta">{displayValue(attributes.responsible_id)}</td>
+      <td className="task-meta">{displayValue(attributes.delegated_user_id)}</td>
+      <td className="task-meta">{formatDate(planningTime)}</td>
+      <td className="task-meta">{displayValue(dueDate)}</td>
+      <td className="task-actions">
         {baseTaskId ? (
           <Link className="inline-action" to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>
             Открыть
           </Link>
         ) : null}
-      </div>
-      <dl className="meta-grid compact">
-        <div>
-          <dt>Статус</dt>
-          <dd>{labelFrom(statusLabels, attributes.status, "—")}</dd>
-        </div>
-        <div>
-          <dt>Тип</dt>
-          <dd>{labelFrom(taskKindLabels, attributes.task_kind, "—")}</dd>
-        </div>
-        <div>
-          <dt>Автор</dt>
-          <dd>{displayValue(attributes.creator_id)}</dd>
-        </div>
-        <div>
-          <dt>Ответственный</dt>
-          <dd>{displayValue(attributes.responsible_id)}</dd>
-        </div>
-        <div>
-          <dt>Делегировано</dt>
-          <dd>{displayValue(attributes.delegated_user_id)}</dd>
-        </div>
-      </dl>
-      {occurrence ? (
-        <p className="muted-line">
-          {occurrenceLabel}: {labelFrom(occurrenceStatusLabels, occurrence.status, "—")}
-          {occurrenceTime ? `, ${formatDateTime(occurrenceTime)}` : ""}
-        </p>
-      ) : null}
-    </article>
+      </td>
+    </tr>
   );
 }
 
@@ -130,6 +133,7 @@ export function TaskListPage({
         <div>
           <p className="eyebrow">Рабочая область</p>
           <h2>{title}</h2>
+          <p className="header-copy">Плотный список задач с фильтрами и быстрым переходом в карточку.</p>
         </div>
         {primaryAction ? (
           <Link className="page-action" to={primaryAction.to}>
@@ -137,17 +141,38 @@ export function TaskListPage({
           </Link>
         ) : null}
       </header>
-      <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
-      {tasksQuery.isPending ? <div className="page-state">Загружаем задачи...</div> : null}
-      {tasksQuery.isError ? <div className="alert error">{readError(tasksQuery.error)}</div> : null}
-      {!tasksQuery.isPending && !tasksQuery.isError && rows.length === 0 ? (
-        <div className="page-state">Задачи не найдены.</div>
-      ) : null}
-      <div className="stack">
-        {rows.map((task) => (
-          <TaskRow key={task.id} task={task} />
-        ))}
-      </div>
+      <section className="task-list-shell">
+        <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
+        {tasksQuery.isPending ? <div className="page-state">Загружаем задачи...</div> : null}
+        {tasksQuery.isError ? <div className="page-state alert error">{readError(tasksQuery.error)}</div> : null}
+        {!tasksQuery.isPending && !tasksQuery.isError && rows.length === 0 ? (
+          <div className="page-state">Задачи не найдены.</div>
+        ) : null}
+        {!tasksQuery.isPending && !tasksQuery.isError && rows.length > 0 ? (
+          <div className="table-card">
+            <table className="task-table" aria-label={title}>
+              <thead>
+                <tr>
+                  <th>Название</th>
+                  <th>Статус</th>
+                  <th>Тип</th>
+                  <th>Автор</th>
+                  <th>Ответственный</th>
+                  <th>Делегировано</th>
+                  <th>Запуск</th>
+                  <th>Срок</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((task) => (
+                  <TaskRow key={task.id} task={task} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
     </section>
   );
 }

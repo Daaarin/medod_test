@@ -27,6 +27,7 @@ export function AdminPage({ api }) {
         <div>
           <p className="eyebrow">Администратор</p>
           <h2>Администрирование</h2>
+          <p className="header-copy">Контроль доступности API и быстрый переход к документации.</p>
         </div>
         <a className="page-action" href="/api-docs" target="_blank" rel="noreferrer">
           Открыть Swagger

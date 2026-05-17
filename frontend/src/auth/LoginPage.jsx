@@ -48,6 +48,7 @@ export function LoginPage() {
       <form className="auth-card" onSubmit={handleSubmit}>
         <p className="eyebrow">Medods Tasks</p>
         <h1>Вход</h1>
+        <p className="header-copy">Рабочее пространство для задач, календаря и тегов.</p>
         {error ? <div className="alert error">{error}</div> : null}
         <label>
           Email
