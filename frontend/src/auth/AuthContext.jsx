@@ -12,7 +12,7 @@ function normalizeMessage(error) {
     return error.message;
   }
 
-  return "Unable to complete authentication";
+  return "Не удалось выполнить вход";
 }
 
 export function AuthProvider({ api, children }) {

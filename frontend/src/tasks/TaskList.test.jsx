@@ -29,9 +29,9 @@ describe("TaskListPage", () => {
 
     renderTasks(api);
 
-    await user.type(screen.getByLabelText("From"), "2026-05-15");
-    await user.selectOptions(screen.getByLabelText("Lifecycle status"), "ongoing");
-    await user.selectOptions(screen.getByLabelText("Occurrence status"), "planned");
+    await user.type(screen.getByLabelText("С"), "2026-05-15");
+    await user.selectOptions(screen.getByLabelText("Статус задачи"), "ongoing");
+    await user.selectOptions(screen.getByLabelText("Статус выполнения"), "planned");
 
     await waitFor(() =>
       expect(api.tasks).toHaveBeenLastCalledWith(

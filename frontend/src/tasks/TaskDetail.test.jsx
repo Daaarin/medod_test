@@ -84,20 +84,20 @@ describe("TaskDetail", () => {
       },
     });
 
-    expect(await screen.findByRole("button", { name: "Execute" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Postpone" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Выполнить" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Перенести" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Пропустить" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Execute" }));
+    await user.click(screen.getByRole("button", { name: "Выполнить" }));
 
     await waitFor(() =>
       expect(api.executeOccurrence).toHaveBeenCalledWith(42),
     );
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Execute" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("button", { name: "Выполнить" })).not.toBeInTheDocument(),
     );
     await waitFor(() =>
-      expect(screen.getByText("executed")).toBeInTheDocument(),
+      expect(screen.getByText("Выполнено")).toBeInTheDocument(),
     );
     expect(screen.getByText("2026-05-16T09:45:00.000Z")).toBeInTheDocument();
   });
@@ -131,9 +131,9 @@ describe("TaskDetail", () => {
 
     renderTaskDetail(api);
 
-    const completionDateInput = await screen.findByLabelText("Completion date");
+    const completionDateInput = await screen.findByLabelText("Дата завершения");
     await user.clear(completionDateInput);
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() =>
       expect(api.updateTask).toHaveBeenCalledWith(

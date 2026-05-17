@@ -29,7 +29,7 @@ describe("TagsPage", () => {
     );
 
     expect(await screen.findByText("Отчётность")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Deactivate" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save tag" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Деактивировать" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Сохранить тег" })).toBeDisabled();
   });
 });

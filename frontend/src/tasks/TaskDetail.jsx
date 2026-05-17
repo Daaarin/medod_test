@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
 
 function readError(error) {
   if (error?.messages?.length) {
@@ -11,7 +12,7 @@ function readError(error) {
     return error.message;
   }
 
-  return "Unable to load task";
+  return "Не удалось загрузить задачу";
 }
 
 function displayValue(value) {
@@ -58,7 +59,7 @@ function tagId(tag) {
 }
 
 function tagName(tag) {
-  return tag?.attributes?.name || tag?.name || "Untitled tag";
+  return tag?.attributes?.name || tag?.name || "Тег без названия";
 }
 
 function tagDescription(tag) {
@@ -156,7 +157,7 @@ export function TaskDetail({ api }) {
         completion_date: editValues.completion_date ? editValues.completion_date : null,
       }),
     onSuccess: async () => {
-      setFeedback("Task saved.");
+      setFeedback("Задача сохранена.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -167,7 +168,7 @@ export function TaskDetail({ api }) {
   const acceptMutation = useMutation({
     mutationFn: () => api.acceptTask(taskId),
     onSuccess: async () => {
-      setFeedback("Task accepted.");
+      setFeedback("Задача принята.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -178,7 +179,7 @@ export function TaskDetail({ api }) {
   const declineMutation = useMutation({
     mutationFn: () => api.declineTask(taskId),
     onSuccess: async () => {
-      setFeedback("Task declined.");
+      setFeedback("Задача отклонена.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -189,7 +190,7 @@ export function TaskDetail({ api }) {
   const deactivateMutation = useMutation({
     mutationFn: () => api.deactivateTask(taskId),
     onSuccess: async () => {
-      setFeedback("Task deactivated.");
+      setFeedback("Задача деактивирована.");
       await invalidateTaskData();
       navigate("/tasks", { replace: true });
     },
@@ -205,7 +206,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Occurrence postponed.");
+      setFeedback("Выполнение перенесено.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -220,7 +221,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Occurrence executed.");
+      setFeedback("Выполнение отмечено.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -235,7 +236,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Occurrence skipped.");
+      setFeedback("Выполнение пропущено.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -246,7 +247,7 @@ export function TaskDetail({ api }) {
   const attachMutation = useMutation({
     mutationFn: () => api.attachTag(taskId, selectedTagId),
     onSuccess: async () => {
-      setFeedback("Tag attached.");
+      setFeedback("Тег добавлен.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -257,7 +258,7 @@ export function TaskDetail({ api }) {
   const detachMutation = useMutation({
     mutationFn: (tagIdentifier) => api.detachTag(taskId, tagIdentifier),
     onSuccess: async () => {
-      setFeedback("Tag detached.");
+      setFeedback("Тег снят.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -270,24 +271,24 @@ export function TaskDetail({ api }) {
 
   const summaryItems = useMemo(
     () => [
-      ["Status", attributes.status],
-      ["Kind", attributes.task_kind],
-      ["Creator", attributes.creator_id],
-      ["Responsible", attributes.responsible_id],
-      ["Delegated", attributes.delegated_user_id],
-      ["Completion date", attributes.completion_date],
-      ["First run", attributes.first_run_at],
-      ["Next run", attributes.next_run_at],
-      ["Accepted at", attributes.accepted_at],
-      ["Cancelled at", attributes.cancelled_at],
-      ["End reason", attributes.end_reason],
-      ["Cancellation reason", attributes.cancellation_reason],
+      ["Статус", labelFrom(statusLabels, attributes.status, "—")],
+      ["Тип", labelFrom(taskKindLabels, attributes.task_kind, "—")],
+      ["Автор", attributes.creator_id],
+      ["Ответственный", attributes.responsible_id],
+      ["Делегировано", attributes.delegated_user_id],
+      ["Дата завершения", attributes.completion_date],
+      ["Первый запуск", attributes.first_run_at],
+      ["Следующий запуск", attributes.next_run_at],
+      ["Принята", attributes.accepted_at],
+      ["Отменена", attributes.cancelled_at],
+      ["Причина завершения", attributes.end_reason],
+      ["Причина отмены", attributes.cancellation_reason],
     ],
     [attributes],
   );
 
   if (taskQuery.isPending) {
-    return <div className="page-state">Loading task...</div>;
+    return <div className="page-state">Загружаем задачу...</div>;
   }
 
   if (taskQuery.isError) {
@@ -297,15 +298,15 @@ export function TaskDetail({ api }) {
   return (
     <section className="stack">
       <header className="page-header">
-        <p className="eyebrow">Task</p>
-        <h2>{attributes.name || "Untitled task"}</h2>
-        <p>{attributes.description || "No description"}</p>
+        <p className="eyebrow">Задача</p>
+        <h2>{attributes.name || "Без названия"}</h2>
+        <p>{attributes.description || "Описание не добавлено"}</p>
       </header>
 
       {feedback ? <div className="alert">{feedback}</div> : null}
 
       <div className="panel">
-        <h3>Edit</h3>
+        <h3>Редактирование</h3>
         <form
           className="stack"
           onSubmit={(event) => {
@@ -315,14 +316,14 @@ export function TaskDetail({ api }) {
         >
           <div className="form-grid">
             <label>
-              Name
+              Название
               <input
                 value={editValues.name}
                 onChange={(event) => setEditValues((current) => ({ ...current, name: event.target.value }))}
               />
             </label>
             <label>
-              Completion date
+              Дата завершения
               <input
                 type="date"
                 value={editValues.completion_date}
@@ -333,7 +334,7 @@ export function TaskDetail({ api }) {
             </label>
           </div>
           <label>
-            Description
+            Описание
             <textarea
               value={editValues.description}
               onChange={(event) => setEditValues((current) => ({ ...current, description: event.target.value }))}
@@ -341,34 +342,34 @@ export function TaskDetail({ api }) {
           </label>
           {updateMutation.isError ? <div className="alert error">{mutationError(updateMutation.error)}</div> : null}
           <button type="submit" disabled={updateMutation.isPending}>
-            Save changes
+            Сохранить
           </button>
         </form>
       </div>
 
       <div className="panel">
-        <h3>Actions</h3>
+        <h3>Действия</h3>
         <div className="toolbar">
           <button
             type="button"
             onClick={() => acceptMutation.mutate()}
             disabled={attributes.status !== "pending_acceptance" || acceptMutation.isPending}
           >
-            Accept
+            Принять
           </button>
           <button
             type="button"
             onClick={() => declineMutation.mutate()}
             disabled={attributes.status !== "pending_acceptance" || declineMutation.isPending}
           >
-            Decline
+            Отклонить
           </button>
           <button
             type="button"
             onClick={() => deactivateMutation.mutate()}
             disabled={["completed", "cancelled"].includes(attributes.status) || deactivateMutation.isPending}
           >
-            Deactivate
+            Деактивировать
           </button>
         </div>
         {acceptMutation.isError ? <div className="alert error">{mutationError(acceptMutation.error)}</div> : null}
@@ -377,7 +378,7 @@ export function TaskDetail({ api }) {
       </div>
 
       <div className="panel">
-        <h3>Task details</h3>
+        <h3>Детали задачи</h3>
         <dl className="meta-grid">
           {summaryItems.map(([label, value]) => (
             <div key={label}>
@@ -389,8 +390,8 @@ export function TaskDetail({ api }) {
       </div>
 
       <div className="panel stack">
-        <h3>Tags</h3>
-        {tagsQuery.isPending ? <div className="page-state">Loading tags...</div> : null}
+        <h3>Теги</h3>
+        {tagsQuery.isPending ? <div className="page-state">Загружаем теги...</div> : null}
         {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
         {attachedTags.length ? (
           <div className="stack">
@@ -405,18 +406,18 @@ export function TaskDetail({ api }) {
                   onClick={() => detachMutation.mutate(tagId(tag))}
                   disabled={detachMutation.isPending}
                 >
-                  Detach
+                  Снять
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <div className="page-state">This response does not include attached tags yet.</div>
+          <div className="page-state">У задачи пока нет тегов.</div>
         )}
         {!tagsQuery.isPending && availableTags.length ? (
           <div className="toolbar">
             <label>
-              Attach tag
+              Добавить тег
               <select value={selectedTagId} onChange={(event) => setSelectedTagId(event.target.value)}>
                 {availableTags.map((tag) => (
                   <option key={tagId(tag)} value={tagId(tag)}>
@@ -430,7 +431,7 @@ export function TaskDetail({ api }) {
               onClick={() => attachMutation.mutate()}
               disabled={!selectedTagId || attachMutation.isPending}
             >
-              Attach
+              Добавить
             </button>
           </div>
         ) : null}
@@ -440,30 +441,30 @@ export function TaskDetail({ api }) {
 
       {occurrence ? (
         <div className="panel">
-          <h3>Occurrence</h3>
+          <h3>Выполнение</h3>
           <dl className="meta-grid">
             <div>
-              <dt>Status</dt>
-              <dd>{displayValue(occurrence.status)}</dd>
+              <dt>Статус</dt>
+              <dd>{labelFrom(occurrenceStatusLabels, occurrence.status, "—")}</dd>
             </div>
             <div>
-              <dt>Scheduled at</dt>
+              <dt>Запланировано</dt>
               <dd>{displayValue(occurrence.scheduled_at)}</dd>
             </div>
             <div>
-              <dt>Actual at</dt>
+              <dt>Фактически</dt>
               <dd>{displayValue(occurrence.actual_at)}</dd>
             </div>
             <div>
-              <dt>Postponed to</dt>
+              <dt>Перенесено на</dt>
               <dd>{displayValue(occurrence.postponed_to)}</dd>
             </div>
             <div>
-              <dt>Skip reason</dt>
+              <dt>Причина пропуска</dt>
               <dd>{displayValue(occurrence.skip_reason)}</dd>
             </div>
             <div>
-              <dt>Generated at</dt>
+              <dt>Сгенерировано</dt>
               <dd>{displayValue(occurrence.generated_at)}</dd>
             </div>
           </dl>
@@ -471,7 +472,7 @@ export function TaskDetail({ api }) {
           {canShowOccurrenceActions ? (
             <div className="stack">
               <label>
-                Postpone to
+                Перенести на
                 <input
                   type="datetime-local"
                   value={postponedTo}
@@ -484,17 +485,17 @@ export function TaskDetail({ api }) {
                   onClick={() => postponeMutation.mutate()}
                   disabled={postponeMutation.isPending || !postponedTo}
                 >
-                  Postpone
+                  Перенести
                 </button>
                 <button type="button" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending}>
-                  Execute
+                  Выполнить
                 </button>
                 <label>
-                  Skip reason
+                  Причина пропуска
                   <input value={skipReason} onChange={(event) => setSkipReason(event.target.value)} />
                 </label>
                 <button type="button" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
-                  Skip
+                  Пропустить
                 </button>
               </div>
               {postponeMutation.isError ? <div className="alert error">{mutationError(postponeMutation.error)}</div> : null}
@@ -503,7 +504,7 @@ export function TaskDetail({ api }) {
             </div>
           ) : (
             <div className="page-state">
-              {occurrence.projected ? "Projected occurrences are read-only until persisted." : "This occurrence is not actionable."}
+              {occurrence.projected ? "Плановое выполнение доступно только для просмотра." : "Для этого выполнения нет действий."}
             </div>
           )}
         </div>

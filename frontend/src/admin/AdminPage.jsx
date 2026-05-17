@@ -11,7 +11,7 @@ function readError(error) {
     return error.message;
   }
 
-  return "Unable to load health status";
+  return "Не удалось проверить состояние API";
 }
 
 export function AdminPage({ api }) {
@@ -25,22 +25,22 @@ export function AdminPage({ api }) {
     <section className="stack">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administrator</p>
-          <h2>Admin</h2>
+          <p className="eyebrow">Администратор</p>
+          <h2>Администрирование</h2>
         </div>
         <a className="page-action" href="/api-docs" target="_blank" rel="noreferrer">
-          Open Swagger
+          Открыть Swagger
         </a>
       </header>
 
       <div className="panel">
-        <h3>API health</h3>
-        {healthQuery.isPending ? <div className="page-state">Checking API health...</div> : null}
+        <h3>Состояние API</h3>
+        {healthQuery.isPending ? <div className="page-state">Проверяем API...</div> : null}
         {healthQuery.isError ? <div className="alert error">{readError(healthQuery.error)}</div> : null}
-        {!healthQuery.isPending && !healthQuery.isError ? <div>Available</div> : null}
+        {!healthQuery.isPending && !healthQuery.isError ? <div>Доступен</div> : null}
       </div>
 
-      <TaskListPage api={api} title="All visible tasks" showScope={false} hiddenFilters={["status"]} />
+      <TaskListPage api={api} title="Все доступные задачи" showScope={false} hiddenFilters={["status"]} />
       <TagsPage api={api} includeDeactivated />
     </section>
   );

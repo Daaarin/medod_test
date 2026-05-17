@@ -7,32 +7,32 @@ describe("TaskForm", () => {
   it("enables specific date fields for recurring tasks", async () => {
     render(<TaskForm onSubmit={vi.fn()} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
-    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "specific_dates");
+    await userEvent.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Тип правила"), "specific_dates");
 
-    expect(screen.getByLabelText("Specific dates")).toBeInTheDocument();
+    expect(screen.getByLabelText("Конкретные даты")).toBeInTheDocument();
   });
 
   it("enables weekday parity fields for recurring tasks", async () => {
     render(<TaskForm onSubmit={vi.fn()} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
-    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "weekday_parity");
+    await userEvent.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Тип правила"), "weekday_parity");
 
-    expect(screen.getByLabelText("Weekday parity")).toBeInTheDocument();
-    expect(screen.getByLabelText("Weekday parity")).toHaveValue("even");
+    expect(screen.getByLabelText("Четность дня недели")).toBeInTheDocument();
+    expect(screen.getByLabelText("Четность дня недели")).toHaveValue("even");
   });
 
   it("converts recurring submit values to task payload fields", async () => {
     const onSubmit = vi.fn();
     render(<TaskForm onSubmit={onSubmit} />);
 
-    await userEvent.type(screen.getByLabelText("Name"), "Morning rounds");
-    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
-    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "specific_dates");
-    await userEvent.type(screen.getByLabelText("Specific dates"), "2026-05-16, 2026-05-20");
-    await userEvent.type(screen.getByLabelText("First run"), "2026-05-16T09:30");
-    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+    await userEvent.type(screen.getByLabelText("Название"), "Morning rounds");
+    await userEvent.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Тип правила"), "specific_dates");
+    await userEvent.type(screen.getByLabelText("Конкретные даты"), "2026-05-16, 2026-05-20");
+    await userEvent.type(screen.getByLabelText("Первый запуск"), "2026-05-16T09:30");
+    await userEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -51,11 +51,11 @@ describe("TaskForm", () => {
     const onSubmit = vi.fn();
     render(<TaskForm onSubmit={onSubmit} />);
 
-    await userEvent.type(screen.getByLabelText("Name"), "Evening check");
-    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
-    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "weekday_parity");
-    await userEvent.selectOptions(screen.getByLabelText("Weekday parity"), "odd");
-    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+    await userEvent.type(screen.getByLabelText("Название"), "Evening check");
+    await userEvent.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Тип правила"), "weekday_parity");
+    await userEvent.selectOptions(screen.getByLabelText("Четность дня недели"), "odd");
+    await userEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -73,10 +73,10 @@ describe("TaskForm", () => {
     const onSubmit = vi.fn();
     render(<TaskForm onSubmit={onSubmit} />);
 
-    await userEvent.type(screen.getByLabelText("Name"), "Midmonth review");
-    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
-    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "day_of_month_parity");
-    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+    await userEvent.type(screen.getByLabelText("Название"), "Midmonth review");
+    await userEvent.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Тип правила"), "day_of_month_parity");
+    await userEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -94,10 +94,10 @@ describe("TaskForm", () => {
     const onSubmit = vi.fn();
     render(<TaskForm onSubmit={onSubmit} />);
 
-    await userEvent.type(screen.getByLabelText("Name"), "Weekly review");
-    await userEvent.selectOptions(screen.getByLabelText("Task kind"), "recurring");
-    await userEvent.selectOptions(screen.getByLabelText("Rule type"), "weekday_parity");
-    await userEvent.click(screen.getByRole("button", { name: "Create task" }));
+    await userEvent.type(screen.getByLabelText("Название"), "Weekly review");
+    await userEvent.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await userEvent.selectOptions(screen.getByLabelText("Тип правила"), "weekday_parity");
+    await userEvent.click(screen.getByRole("button", { name: "Создать задачу" }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({

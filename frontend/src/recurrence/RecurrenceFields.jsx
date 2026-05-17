@@ -1,8 +1,4 @@
-import { recurrenceTypes } from "../tasks/taskConstants";
-
-function labelFor(value) {
-  return value ? value.replaceAll("_", " ") : "";
-}
+import { labelFrom, parityLabels, recurrenceTypeLabels, recurrenceTypes } from "../tasks/taskConstants";
 
 function setNestedField(value, onChange, key, fieldValue) {
   onChange({
@@ -19,8 +15,8 @@ function ParitySelect({ label, rule, parity, onChange, fieldKey }) {
         value={parity || "even"}
         onChange={(event) => setNestedField(rule, onChange, fieldKey, event.target.value)}
       >
-        <option value="even">even</option>
-        <option value="odd">odd</option>
+        <option value="even">{parityLabels.even}</option>
+        <option value="odd">{parityLabels.odd}</option>
       </select>
     </label>
   );
@@ -31,24 +27,24 @@ export function RecurrenceFields({ value, onChange }) {
 
   return (
     <fieldset className="panel">
-      <legend>Recurrence</legend>
+      <legend>Повторение</legend>
       <div className="form-grid">
         <label>
-          Rule type
+          Тип правила
           <select
             value={ruleType}
             onChange={(event) => setNestedField(value, onChange, "rule_type", event.target.value)}
           >
             {recurrenceTypes.map((type) => (
               <option key={type} value={type}>
-                {labelFor(type)}
+                {labelFrom(recurrenceTypeLabels, type)}
               </option>
             ))}
           </select>
         </label>
 
         <label>
-          Start date
+          Дата начала
           <input
             type="date"
             value={value.date_start || ""}
@@ -57,7 +53,7 @@ export function RecurrenceFields({ value, onChange }) {
         </label>
 
         <label>
-          End date
+          Дата окончания
           <input
             type="date"
             value={value.date_end || ""}
@@ -66,7 +62,7 @@ export function RecurrenceFields({ value, onChange }) {
         </label>
 
         <label>
-          Execution time
+          Время выполнения
           <input
             type="time"
             value={value.execution_time || ""}
@@ -75,7 +71,7 @@ export function RecurrenceFields({ value, onChange }) {
         </label>
 
         <label>
-          Timezone
+          Часовой пояс
           <input
             value={value.timezone || "Europe/Moscow"}
             onChange={(event) => setNestedField(value, onChange, "timezone", event.target.value)}
@@ -85,7 +81,7 @@ export function RecurrenceFields({ value, onChange }) {
 
       {ruleType === "every_n_days" ? (
         <label>
-          Interval days
+          Интервал в днях
           <input
             type="number"
             min="1"
@@ -98,7 +94,7 @@ export function RecurrenceFields({ value, onChange }) {
       {ruleType === "every_n_months" ? (
         <div className="form-grid">
           <label>
-            Interval months
+            Интервал в месяцах
             <input
               type="number"
               min="1"
@@ -107,7 +103,7 @@ export function RecurrenceFields({ value, onChange }) {
             />
           </label>
           <label>
-            Day of month
+            День месяца
             <input
               type="number"
               min="1"
@@ -121,7 +117,7 @@ export function RecurrenceFields({ value, onChange }) {
 
       {ruleType === "day_of_month_parity" ? (
         <ParitySelect
-          label="Day parity"
+          label="Четность дня"
           rule={value}
           parity={value.day_of_month_parity}
           onChange={onChange}
@@ -131,7 +127,7 @@ export function RecurrenceFields({ value, onChange }) {
 
       {ruleType === "weekday_parity" ? (
         <ParitySelect
-          label="Weekday parity"
+          label="Четность дня недели"
           rule={value}
           parity={value.weekday_parity}
           onChange={onChange}
@@ -141,7 +137,7 @@ export function RecurrenceFields({ value, onChange }) {
 
       {ruleType === "specific_dates" ? (
         <label>
-          Specific dates
+          Конкретные даты
           <textarea
             value={value.specific_dates || ""}
             onChange={(event) => setNestedField(value, onChange, "specific_dates", event.target.value)}

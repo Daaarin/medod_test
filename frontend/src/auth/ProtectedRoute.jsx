@@ -6,7 +6,7 @@ export function ProtectedRoute({ adminOnly = false }) {
   const location = useLocation();
 
   if (auth.loading) {
-    return <div className="page-state">Loading session...</div>;
+    return <div className="page-state">Загружаем сессию...</div>;
   }
 
   if (!auth.user) {
@@ -14,7 +14,7 @@ export function ProtectedRoute({ adminOnly = false }) {
   }
 
   if (adminOnly && !auth.isAdmin) {
-    return <div className="page-state">Access denied.</div>;
+    return <div className="page-state">Доступ запрещен.</div>;
   }
 
   return <Outlet />;

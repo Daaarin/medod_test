@@ -158,6 +158,11 @@ button {
   gap: 1rem;
 }
 
+.header-copy {
+  color: #475467;
+  margin: 0.35rem 0 0;
+}
+
 .page-action {
   background: #155eef;
   border: 1px solid #155eef;
@@ -165,6 +170,19 @@ button {
   color: #ffffff;
   display: inline-flex;
   padding: 0.7rem 0.9rem;
+}
+
+.inline-action,
+.ghost-button {
+  border: 1px solid #d0d5dd;
+  border-radius: 0.5rem;
+  color: #1d2939;
+  display: inline-flex;
+  padding: 0.55rem 0.75rem;
+}
+
+.ghost-button {
+  background: #ffffff;
 }
 
 .row-between {
@@ -183,6 +201,11 @@ button {
   font-size: 0.75rem;
   font-weight: 700;
   padding: 0.35rem 0.6rem;
+}
+
+.muted-line {
+  color: #475467;
+  margin-bottom: 0;
 }
 
 .stack {
@@ -227,6 +250,11 @@ button {
   color: #ffffff;
 }
 
+button.ghost-button {
+  background: #ffffff;
+  color: #1d2939;
+}
+
 button[disabled] {
   background: #98a2b3;
   cursor: not-allowed;
@@ -244,6 +272,14 @@ button[disabled] {
   padding: 2rem;
 }
 
+.alert {
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  border-radius: 0.5rem;
+  color: #067647;
+  padding: 0.75rem;
+}
+
 .login-page {
   display: grid;
   min-height: 100vh;
@@ -257,6 +293,167 @@ button[disabled] {
   gap: 0.9rem;
 }
 
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.meta-grid div {
+  min-width: 0;
+}
+
+.meta-grid dt {
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.meta-grid dd {
+  margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.meta-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.task-row-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.task-row-main {
+  min-width: 0;
+}
+
+.calendar-page {
+  gap: 1rem;
+}
+
+.calendar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.calendar-layout {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+}
+
+.calendar-board {
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.calendar-weekday {
+  background: #f8fafc;
+  border-bottom: 1px solid #e4e7ec;
+  color: #475467;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.7rem;
+  text-align: center;
+}
+
+.calendar-day {
+  background: #ffffff;
+  border: 0;
+  border-bottom: 1px solid #e4e7ec;
+  border-right: 1px solid #e4e7ec;
+  color: #172033;
+  display: grid;
+  gap: 0.4rem;
+  min-height: 116px;
+  padding: 0.65rem;
+  text-align: left;
+}
+
+.calendar-day:nth-child(7n + 7) {
+  border-right: 0;
+}
+
+.calendar-day.muted {
+  background: #f8fafc;
+  color: #98a2b3;
+}
+
+.calendar-day.today .calendar-day-number {
+  background: #155eef;
+  color: #ffffff;
+}
+
+.calendar-day.selected {
+  box-shadow: inset 0 0 0 2px #155eef;
+}
+
+.calendar-day-number {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-weight: 800;
+  height: 1.8rem;
+  justify-content: center;
+  width: 1.8rem;
+}
+
+.calendar-count {
+  color: #155eef;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.calendar-preview {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.calendar-preview span {
+  background: #eff6ff;
+  border-radius: 0.35rem;
+  color: #1849a9;
+  font-size: 0.78rem;
+  overflow: hidden;
+  padding: 0.2rem 0.35rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-agenda {
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.agenda-item {
+  border: 1px solid #e4e7ec;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+}
+
+.agenda-time {
+  color: #155eef;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -264,5 +461,24 @@ button[disabled] {
 
   .sidebar {
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .page-header,
+  .task-row-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day {
+    min-height: 88px;
+    padding: 0.45rem;
+  }
+
+  .calendar-preview span {
+    display: none;
   }
 }

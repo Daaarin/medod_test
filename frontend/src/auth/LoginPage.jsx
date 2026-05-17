@@ -11,7 +11,7 @@ function readError(error) {
     return error.message;
   }
 
-  return "Unable to sign in";
+  return "Не удалось войти";
 }
 
 export function LoginPage() {
@@ -47,7 +47,7 @@ export function LoginPage() {
     <main className="login-page">
       <form className="auth-card" onSubmit={handleSubmit}>
         <p className="eyebrow">Medods Tasks</p>
-        <h1>Sign in</h1>
+        <h1>Вход</h1>
         {error ? <div className="alert error">{error}</div> : null}
         <label>
           Email
@@ -60,7 +60,7 @@ export function LoginPage() {
           />
         </label>
         <label>
-          Password
+          Пароль
           <input
             autoComplete="current-password"
             type="password"
@@ -69,7 +69,7 @@ export function LoginPage() {
             required
           />
         </label>
-        <button type="submit">Sign in</button>
+        <button type="submit">Войти</button>
       </form>
     </main>
   );

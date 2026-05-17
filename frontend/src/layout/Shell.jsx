@@ -2,10 +2,10 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 const baseLinks = [
-  { to: "/tasks", label: "Tasks" },
-  { to: "/delegated", label: "Delegated" },
-  { to: "/calendar", label: "Calendar" },
-  { to: "/tags", label: "Tags" },
+  { to: "/tasks", label: "Задачи" },
+  { to: "/delegated", label: "Делегированные" },
+  { to: "/calendar", label: "Календарь" },
+  { to: "/tags", label: "Теги" },
 ];
 
 function buildDisplayName(user) {
@@ -14,17 +14,17 @@ function buildDisplayName(user) {
     return parts.join(" ");
   }
 
-  return user?.email || "Signed in";
+  return user?.email || "Вы вошли";
 }
 
 function formatRole(role) {
-  if (!role) return "Role unavailable";
-  return role.replaceAll("_", " ");
+  if (!role) return "Роль не указана";
+  return role === "administrator" ? "Администратор" : role.replaceAll("_", " ");
 }
 
 export function Shell() {
   const auth = useAuth();
-  const links = auth.isAdmin ? [...baseLinks, { to: "/admin", label: "Admin" }] : baseLinks;
+  const links = auth.isAdmin ? [...baseLinks, { to: "/admin", label: "Администрирование" }] : baseLinks;
   const displayName = buildDisplayName(auth.user);
 
   return (
@@ -32,12 +32,12 @@ export function Shell() {
       <aside className="sidebar">
         <div className="sidebar-header">
           <p className="eyebrow">Medods Tasks</p>
-          <h1>Operations</h1>
+          <h1>Задачи</h1>
           <p className="sidebar-copy">{displayName}</p>
           <p className="role-label">{formatRole(auth.user?.role)}</p>
         </div>
 
-        <nav className="tabs" aria-label="Primary">
+        <nav className="tabs" aria-label="Основная навигация">
           {links.map((link) => (
             <NavLink key={link.to} to={link.to} className={({ isActive }) => (isActive ? "active" : undefined)}>
               {link.label}
@@ -46,7 +46,7 @@ export function Shell() {
         </nav>
 
         <button type="button" className="secondary-button" onClick={auth.logout}>
-          Sign out
+          Выйти
         </button>
       </aside>
 

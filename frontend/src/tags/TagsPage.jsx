@@ -10,7 +10,7 @@ function readError(error) {
     return error.message;
   }
 
-  return "Unable to load tags";
+  return "Не удалось загрузить теги";
 }
 
 function tagId(tag) {
@@ -18,7 +18,7 @@ function tagId(tag) {
 }
 
 function tagName(tag) {
-  return tag?.attributes?.name || tag?.name || "Untitled tag";
+  return tag?.attributes?.name || tag?.name || "Тег без названия";
 }
 
 function tagDescription(tag) {
@@ -87,8 +87,8 @@ export function TagsPage({ api, includeDeactivated = false }) {
     <section className="stack">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Catalog</p>
-          <h2>Tags</h2>
+          <p className="eyebrow">Каталог</p>
+          <h2>Теги</h2>
         </div>
       </header>
 
@@ -101,10 +101,10 @@ export function TagsPage({ api, includeDeactivated = false }) {
           createMutation.mutate(createValues);
         }}
       >
-        <h3>New tag</h3>
+        <h3>Новый тег</h3>
         <div className="form-grid">
           <label>
-            Name
+            Название
             <input
               value={createValues.name}
               onChange={(event) => setCreateValues((current) => ({ ...current, name: event.target.value }))}
@@ -112,7 +112,7 @@ export function TagsPage({ api, includeDeactivated = false }) {
             />
           </label>
           <label>
-            Description
+            Описание
             <input
               value={createValues.description}
               onChange={(event) => setCreateValues((current) => ({ ...current, description: event.target.value }))}
@@ -121,7 +121,7 @@ export function TagsPage({ api, includeDeactivated = false }) {
         </div>
         {createMutation.isError ? <div className="alert error">{readError(createMutation.error)}</div> : null}
         <button type="submit" disabled={createMutation.isPending}>
-          Create tag
+          Создать тег
         </button>
       </form>
 
@@ -138,13 +138,13 @@ export function TagsPage({ api, includeDeactivated = false }) {
                 <div className="row-between">
                   <div>
                     <h3>{tagName(tag)}</h3>
-                    <p>{tagDescription(tag) || "No description"}</p>
+                    <p>{tagDescription(tag) || "Описание не добавлено"}</p>
                   </div>
                   <div className="toolbar">
-                    {systemTag ? <span className="status-badge">System tag</span> : null}
-                    {inactive ? <span className="status-badge">Inactive</span> : null}
+                    {systemTag ? <span className="status-badge">Системный тег</span> : null}
+                    {inactive ? <span className="status-badge">Неактивен</span> : null}
                     <button type="button" disabled={systemTag || inactive} onClick={() => deactivateMutation.mutate(id)}>
-                      Deactivate
+                      Деактивировать
                     </button>
                   </div>
                 </div>
@@ -157,7 +157,7 @@ export function TagsPage({ api, includeDeactivated = false }) {
                 >
                   <div className="form-grid">
                     <label>
-                      Name
+                      Название
                       <input
                         value={draft.name}
                         disabled={systemTag || inactive}
@@ -170,7 +170,7 @@ export function TagsPage({ api, includeDeactivated = false }) {
                       />
                     </label>
                     <label>
-                      Description
+                      Описание
                       <input
                         value={draft.description}
                         disabled={systemTag || inactive}
@@ -185,7 +185,7 @@ export function TagsPage({ api, includeDeactivated = false }) {
                   </div>
                   {updateMutation.isError ? <div className="alert error">{readError(updateMutation.error)}</div> : null}
                   <button type="submit" disabled={systemTag || inactive || updateMutation.isPending}>
-                    Save tag
+                    Сохранить тег
                   </button>
                 </form>
               </div>
@@ -193,7 +193,7 @@ export function TagsPage({ api, includeDeactivated = false }) {
           );
         })}
 
-        {!tagsQuery.isPending && !tags.length ? <div className="page-state">No tags found.</div> : null}
+        {!tagsQuery.isPending && !tags.length ? <div className="page-state">Теги не найдены.</div> : null}
       </div>
     </section>
   );

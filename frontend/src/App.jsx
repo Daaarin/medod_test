@@ -21,7 +21,7 @@ const api = createEndpoints(client);
 function PlaceholderPage({ title }) {
   return (
     <section className="panel">
-      <p className="eyebrow">Coming soon</p>
+      <p className="eyebrow">Скоро</p>
       <h2>{title}</h2>
     </section>
   );
@@ -44,13 +44,13 @@ function NewTaskPage({ api }) {
   return (
     <section className="stack">
       <header className="page-header">
-        <p className="eyebrow">Workspace</p>
-        <h2>New task</h2>
+        <p className="eyebrow">Рабочая область</p>
+        <h2>Новая задача</h2>
       </header>
       {createTask.isError ? (
-        <div className="alert error">{createTask.error?.messages?.join(", ") || "Unable to create task"}</div>
+        <div className="alert error">{createTask.error?.messages?.join(", ") || "Не удалось создать задачу"}</div>
       ) : null}
-      <TaskForm onSubmit={(task) => createTask.mutate(task)} submitLabel="Create task" />
+      <TaskForm onSubmit={(task) => createTask.mutate(task)} submitLabel="Создать задачу" />
     </section>
   );
 }
@@ -66,13 +66,13 @@ export default function App() {
               <Route element={<Shell />}>
                 <Route index element={<Navigate to="/tasks" replace />} />
                 <Route path="/tasks/new" element={<NewTaskPage api={api} />} />
-                <Route path="/tasks" element={<TasksPage api={api} primaryAction={{ to: "/tasks/new", label: "New task" }} />} />
+                <Route path="/tasks" element={<TasksPage api={api} title="Задачи" primaryAction={{ to: "/tasks/new", label: "Новая задача" }} />} />
                 <Route
                   path="/delegated"
                   element={
                     <TaskListPage
                       api={api}
-                      title="Delegated"
+                      title="Делегированные задачи"
                       initialFilters={{ scope: "delegated_to_me", status: "pending_acceptance" }}
                       showScope={false}
                       hiddenFilters={["status"]}

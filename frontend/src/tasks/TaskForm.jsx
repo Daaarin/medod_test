@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { RecurrenceFields } from "../recurrence/RecurrenceFields";
-import { taskKinds } from "./taskConstants";
+import { labelFrom, taskKindLabels, taskKinds } from "./taskConstants";
 
 function localDateTimeToIso(value) {
   if (!value) return "";
@@ -34,7 +34,7 @@ function recurrencePayload(rule) {
   };
 }
 
-export function TaskForm({ onSubmit, submitLabel = "Create task" }) {
+export function TaskForm({ onSubmit, submitLabel = "Создать задачу" }) {
   const [task, setTask] = useState({
     task_kind: "one_time",
     assign_to_self: true,
@@ -86,21 +86,21 @@ export function TaskForm({ onSubmit, submitLabel = "Create task" }) {
     <form className="stack" onSubmit={submit}>
       <div className="form-grid">
         <label>
-          Name
+          Название
           <input value={task.name} onChange={(event) => setField("name", event.target.value)} required />
         </label>
         <label>
-          Task kind
+          Тип задачи
           <select value={task.task_kind} onChange={(event) => setField("task_kind", event.target.value)}>
             {taskKinds.map((kind) => (
               <option key={kind} value={kind}>
-                {kind.replaceAll("_", " ")}
+                {labelFrom(taskKindLabels, kind)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Completion date
+          Дата завершения
           <input
             type="date"
             value={task.completion_date}
@@ -108,7 +108,7 @@ export function TaskForm({ onSubmit, submitLabel = "Create task" }) {
           />
         </label>
         <label>
-          First run
+          Первый запуск
           <input
             type="datetime-local"
             value={task.first_run_at}
@@ -116,7 +116,7 @@ export function TaskForm({ onSubmit, submitLabel = "Create task" }) {
           />
         </label>
         <label>
-          Next run
+          Следующий запуск
           <input
             type="datetime-local"
             value={task.next_run_at}
@@ -124,7 +124,7 @@ export function TaskForm({ onSubmit, submitLabel = "Create task" }) {
           />
         </label>
         <label>
-          Delegated user id
+          ID делегированного пользователя
           <input
             type="number"
             min="1"
@@ -135,12 +135,12 @@ export function TaskForm({ onSubmit, submitLabel = "Create task" }) {
       </div>
 
       <label>
-        Description
+        Описание
         <textarea value={task.description} onChange={(event) => setField("description", event.target.value)} />
       </label>
 
       <label>
-        <span>Assign to me</span>
+        <span>Назначить на меня</span>
         <input
           type="checkbox"
           checked={task.assign_to_self}

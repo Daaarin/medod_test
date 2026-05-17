@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TaskFilters } from "./TaskFilters";
+import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
 
 function compactFilters(filters = {}) {
   return Object.fromEntries(
@@ -18,15 +19,28 @@ function readError(error) {
     return error.message;
   }
 
-  return "Unable to load tasks";
+  return "Не удалось загрузить задачи";
 }
 
 function displayValue(value) {
   return value ?? "—";
 }
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
 function rowTitle(task) {
-  return task?.attributes?.name || "Untitled task";
+  return task?.attributes?.name || "Без названия";
 }
 
 export function TaskRow({ task }) {
@@ -34,43 +48,47 @@ export function TaskRow({ task }) {
   const occurrence = attributes.occurrence ?? null;
   const baseTaskId = String(task?.id ?? "").split(":")[0];
   const occurrenceTime = occurrence?.occurs_at || occurrence?.scheduled_at;
-  const occurrenceLabel = occurrence?.projected ? "Projected" : "Occurrence";
+  const occurrenceLabel = occurrence?.projected ? "План" : "Выполнение";
 
   return (
     <article className="table-card">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start" }}>
-        <div style={{ minWidth: 0 }}>
+      <div className="task-row-header">
+        <div className="task-row-main">
           <h3>{rowTitle(task)}</h3>
-          <p>{attributes.description || "No description"}</p>
+          <p>{attributes.description || "Описание не добавлено"}</p>
         </div>
-        {baseTaskId ? <Link to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>Open</Link> : null}
+        {baseTaskId ? (
+          <Link className="inline-action" to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>
+            Открыть
+          </Link>
+        ) : null}
       </div>
-      <dl className="stack">
+      <dl className="meta-grid compact">
         <div>
-          <dt>Status</dt>
-          <dd>{displayValue(attributes.status)}</dd>
+          <dt>Статус</dt>
+          <dd>{labelFrom(statusLabels, attributes.status, "—")}</dd>
         </div>
         <div>
-          <dt>Kind</dt>
-          <dd>{displayValue(attributes.task_kind)}</dd>
+          <dt>Тип</dt>
+          <dd>{labelFrom(taskKindLabels, attributes.task_kind, "—")}</dd>
         </div>
         <div>
-          <dt>Creator</dt>
+          <dt>Автор</dt>
           <dd>{displayValue(attributes.creator_id)}</dd>
         </div>
         <div>
-          <dt>Responsible</dt>
+          <dt>Ответственный</dt>
           <dd>{displayValue(attributes.responsible_id)}</dd>
         </div>
         <div>
-          <dt>Delegated</dt>
+          <dt>Делегировано</dt>
           <dd>{displayValue(attributes.delegated_user_id)}</dd>
         </div>
       </dl>
       {occurrence ? (
-        <p>
-          {occurrenceLabel} occurrence: {displayValue(occurrence.status)}
-          {occurrenceTime ? ` at ${occurrenceTime}` : ""}
+        <p className="muted-line">
+          {occurrenceLabel}: {labelFrom(occurrenceStatusLabels, occurrence.status, "—")}
+          {occurrenceTime ? `, ${formatDateTime(occurrenceTime)}` : ""}
         </p>
       ) : null}
     </article>
@@ -89,7 +107,7 @@ function compactQueryFilters(filters, hasDateRange) {
 
 export function TaskListPage({
   api,
-  title = "Tasks",
+  title = "Задачи",
   initialFilters = {},
   showScope = true,
   hiddenFilters = [],
@@ -110,7 +128,7 @@ export function TaskListPage({
     <section className="stack">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Workspace</p>
+          <p className="eyebrow">Рабочая область</p>
           <h2>{title}</h2>
         </div>
         {primaryAction ? (
@@ -120,10 +138,10 @@ export function TaskListPage({
         ) : null}
       </header>
       <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
-      {tasksQuery.isPending ? <div className="page-state">Loading tasks...</div> : null}
+      {tasksQuery.isPending ? <div className="page-state">Загружаем задачи...</div> : null}
       {tasksQuery.isError ? <div className="alert error">{readError(tasksQuery.error)}</div> : null}
       {!tasksQuery.isPending && !tasksQuery.isError && rows.length === 0 ? (
-        <div className="page-state">No tasks found.</div>
+        <div className="page-state">Задачи не найдены.</div>
       ) : null}
       <div className="stack">
         {rows.map((task) => (

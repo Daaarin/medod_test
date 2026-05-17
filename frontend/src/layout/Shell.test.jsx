@@ -47,7 +47,7 @@ describe("Shell", () => {
 
     expect(await screen.findByText("Tasks content")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("Nina Nurse")).toBeInTheDocument());
-    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Администрирование" })).not.toBeInTheDocument();
   });
 
   it("shows admin navigation for administrators", async () => {
@@ -61,6 +61,6 @@ describe("Shell", () => {
 
     expect(await screen.findByText("Tasks content")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("Ada Admin")).toBeInTheDocument());
-    expect(await screen.findByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Администрирование" })).toBeInTheDocument();
   });
 });

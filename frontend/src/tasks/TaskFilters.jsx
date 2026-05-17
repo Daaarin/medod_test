@@ -1,8 +1,12 @@
-import { occurrenceStatuses, taskScopes, taskStatuses } from "./taskConstants";
-
-function titleize(value) {
-  return value ? value.replaceAll("_", " ") : "Any";
-}
+import {
+  labelFrom,
+  occurrenceStatusLabels,
+  occurrenceStatuses,
+  scopeLabels,
+  taskScopes,
+  taskStatuses,
+  statusLabels,
+} from "./taskConstants";
 
 function isHidden(field, hiddenFilters) {
   return hiddenFilters.includes(field);
@@ -20,11 +24,11 @@ export function TaskFilters({ filters, onChange, showScope = true, hiddenFilters
     <div className="toolbar">
       {showScope && !isHidden("scope", hiddenFilters) ? (
         <label>
-          Scope
+          Область
           <select value={filters.scope || ""} onChange={(event) => setFilter("scope", event.target.value)}>
             {taskScopes.map((scope) => (
               <option key={scope} value={scope}>
-                {titleize(scope)}
+                {labelFrom(scopeLabels, scope)}
               </option>
             ))}
           </select>
@@ -32,11 +36,11 @@ export function TaskFilters({ filters, onChange, showScope = true, hiddenFilters
       ) : null}
       {!isHidden("status", hiddenFilters) ? (
         <label>
-          Lifecycle status
+          Статус задачи
           <select value={filters.status || ""} onChange={(event) => setFilter("status", event.target.value)}>
             {taskStatuses.map((status) => (
               <option key={status} value={status}>
-                {titleize(status)}
+                {labelFrom(statusLabels, status)}
               </option>
             ))}
           </select>
@@ -44,32 +48,32 @@ export function TaskFilters({ filters, onChange, showScope = true, hiddenFilters
       ) : null}
       {!isHidden("occurrence_status", hiddenFilters) ? (
         <label>
-          Occurrence status
+          Статус выполнения
           <select
             aria-describedby={occurrenceStatusHelpId}
             disabled={!hasDateRange}
-            title={hasDateRange ? undefined : "Set From or To before filtering by occurrence status"}
+            title={hasDateRange ? undefined : "Укажите дату начала или окончания"}
             value={filters.occurrence_status || ""}
             onChange={(event) => setFilter("occurrence_status", event.target.value)}
           >
             {occurrenceStatuses.map((status) => (
               <option key={status} value={status}>
-                {titleize(status)}
+                {labelFrom(occurrenceStatusLabels, status)}
               </option>
             ))}
           </select>
-          {!hasDateRange ? <span id="occurrence-status-help">Date range required.</span> : null}
+          {!hasDateRange ? <span id="occurrence-status-help">Нужен период.</span> : null}
         </label>
       ) : null}
       {!isHidden("from", hiddenFilters) ? (
         <label>
-          From
+          С
           <input type="date" value={filters.from || ""} onChange={(event) => setFilter("from", event.target.value)} />
         </label>
       ) : null}
       {!isHidden("to", hiddenFilters) ? (
         <label>
-          To
+          По
           <input type="date" value={filters.to || ""} onChange={(event) => setFilter("to", event.target.value)} />
         </label>
       ) : null}
