@@ -1,3 +1,22 @@
+# == Schema Information
+#
+# Table name: recurrence_rule_dates
+#
+#  id                 :bigint           not null, primary key
+#  run_date           :date             not null
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
+#  recurrence_rule_id :bigint           not null
+#
+# Indexes
+#
+#  index_recurrence_rule_dates_on_recurrence_rule_id  (recurrence_rule_id)
+#  index_recurrence_rule_dates_on_rule_and_run_date   (recurrence_rule_id,run_date) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (recurrence_rule_id => recurrence_rules.id)
+#
 class RecurrenceRuleDate < ApplicationRecord
   belongs_to :recurrence_rule, inverse_of: :recurrence_rule_dates
 

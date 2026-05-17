@@ -50,6 +50,10 @@ group :development, :test do
   gem "rubocop-rails-omakase", require: false
 end
 
+group :development do
+  gem "annot8", "~> 1.0"
+end
+
 group :test do
   gem "rspec-rails", "~> 8.0"
   gem "rswag-specs", "~> 2.16"

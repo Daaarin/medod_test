@@ -1,3 +1,28 @@
+# == Schema Information
+#
+# Table name: task_occurrences
+#
+#  id           :bigint           not null, primary key
+#  actual_at    :datetime
+#  generated_at :datetime
+#  postponed_to :datetime
+#  scheduled_at :datetime         not null
+#  skip_reason  :string
+#  status       :string           not null
+#  created_at   :datetime         not null
+#  updated_at   :datetime         not null
+#  task_id      :bigint           not null
+#
+# Indexes
+#
+#  index_task_occurrences_on_task_id               (task_id)
+#  index_task_occurrences_on_task_id_and_status    (task_id,status)
+#  index_task_occurrences_on_task_id_when_current  (task_id) UNIQUE WHERE ((status)::text = ANY ((ARRAY['planned'::character varying, 'postponed'::character varying])::text[]))
+#
+# Foreign Keys
+#
+#  fk_rails_...  (task_id => tasks.id)
+#
 class TaskOccurrence < ApplicationRecord
   CURRENT_STATUSES = %w[planned postponed].freeze
 

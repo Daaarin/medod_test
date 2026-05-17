@@ -1,3 +1,48 @@
+# == Schema Information
+#
+# Table name: tasks
+#
+#  id                  :bigint           not null, primary key
+#  accepted_at         :datetime
+#  cancellation_reason :string
+#  cancelled_at        :datetime
+#  completed_at        :datetime
+#  completion_date     :date
+#  deactivated_at      :datetime
+#  description         :text
+#  end_reason          :string
+#  first_run_at        :datetime
+#  name                :string           not null
+#  next_run_at         :datetime
+#  status              :string           not null
+#  task_kind           :string           not null
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  creator_id          :bigint
+#  delegated_user_id   :bigint
+#  parent_task_id      :bigint
+#  responsible_id      :bigint
+#  root_task_id        :bigint
+#
+# Indexes
+#
+#  index_tasks_on_creator_id         (creator_id)
+#  index_tasks_on_delegated_user_id  (delegated_user_id)
+#  index_tasks_on_next_run_at        (next_run_at)
+#  index_tasks_on_parent_task_id     (parent_task_id)
+#  index_tasks_on_responsible_id     (responsible_id)
+#  index_tasks_on_root_task_id       (root_task_id)
+#  index_tasks_on_status             (status)
+#  index_tasks_on_task_kind          (task_kind)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (creator_id => users.id)
+#  fk_rails_...  (delegated_user_id => users.id)
+#  fk_rails_...  (parent_task_id => tasks.id)
+#  fk_rails_...  (responsible_id => users.id)
+#  fk_rails_...  (root_task_id => tasks.id)
+#
 require "rails_helper"
 
 RSpec.describe Task, type: :model do
