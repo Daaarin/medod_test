@@ -5,14 +5,13 @@ import {
   computeRecurringNextRunPreview,
   datePartFromDateTimeInput,
   formatUserLabel,
-  parseDateInputValue,
-  parseDateTimeInputValue,
-  parseTimeInputValue,
 } from "../utils/display";
 import { labelFrom, taskKindLabels, taskKinds } from "./taskConstants";
 
 function localDateTimeToIso(value) {
-  return parseDateTimeInputValue(value);
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
 }
 
 function recurrencePayload(rule) {
@@ -33,10 +32,10 @@ function recurrencePayload(rule) {
     month_of_year: rule.month_of_year || undefined,
     weekday: rule.weekday || undefined,
     weekday_parity: rule.rule_type === "weekday_parity" ? rule.weekday_parity || "even" : undefined,
-    execution_time: parseTimeInputValue(rule.execution_time) || undefined,
+    execution_time: rule.execution_time || undefined,
     timezone: rule.timezone || "Europe/Moscow",
-    date_start: parseDateInputValue(rule.date_start) || undefined,
-    date_end: parseDateInputValue(rule.date_end) || undefined,
+    date_start: rule.date_start || undefined,
+    date_end: rule.date_end || undefined,
     recurrence_rule_dates_attributes: recurrenceRuleDatesAttributes,
   };
 }
@@ -48,7 +47,7 @@ function delegatedUserLabel(user) {
 function dateOrderError(completionDate, firstRunAt, nextRunDate) {
   if (!completionDate) return "";
 
-  const completionKey = parseDateInputValue(completionDate);
+  const completionKey = completionDate;
   const firstRunKey = datePartFromDateTimeInput(firstRunAt);
   const nextRunKey = nextRunDate || "";
   const relevantDates = [firstRunKey, nextRunKey].filter(Boolean);
@@ -103,7 +102,7 @@ export function TaskForm({
   const payload = useMemo(() => {
     const base = {
       ...task,
-      completion_date: parseDateInputValue(task.completion_date) || undefined,
+      completion_date: task.completion_date || undefined,
       first_run_at: localDateTimeToIso(task.first_run_at),
       assign_to_self: Boolean(task.assign_to_self),
     };
@@ -157,9 +156,7 @@ export function TaskForm({
         <label>
           Дата завершения
           <input
-            type="text"
-            inputMode="numeric"
-            placeholder="ДД-ММ-ГГГГ"
+            type="date"
             value={task.completion_date}
             onChange={(event) => setField("completion_date", event.target.value)}
           />
@@ -167,9 +164,7 @@ export function TaskForm({
         <label>
           Первый запуск
           <input
-            type="text"
-            inputMode="numeric"
-            placeholder="ДД-ММ-ГГГГ ЧЧ:ММ"
+            type="datetime-local"
             value={task.first_run_at}
             onChange={(event) => setField("first_run_at", event.target.value)}
           />

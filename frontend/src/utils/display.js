@@ -71,42 +71,6 @@ export function formatDate(value) {
   return "—";
 }
 
-export function formatDateInputValue(value) {
-  if (!value) return "";
-
-  const text = String(value).trim();
-  const displayMatch = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (displayMatch) {
-    const [, day, month, year] = displayMatch;
-    return `${day}-${month}-${year}`;
-  }
-
-  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    return `${day}-${month}-${year}`;
-  }
-
-  return text;
-}
-
-export function parseDateInputValue(value) {
-  if (!value) return "";
-
-  const text = String(value).trim();
-  const displayMatch = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (displayMatch) {
-    return `${displayMatch[3]}-${displayMatch[2]}-${displayMatch[1]}`;
-  }
-
-  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-  }
-
-  return text;
-}
-
 export function formatTime(value) {
   const timeParts = parseTimeParts(value);
   if (timeParts) {
@@ -145,57 +109,6 @@ export function formatDateTime(value) {
   }).format(parsed);
 }
 
-export function formatDateTimeInputValue(value) {
-  if (!value) return "";
-
-  const text = String(value).trim();
-  const displayMatch = text.match(/^(\d{2})-(\d{2})-(\d{4})(?:[ T](\d{2}):(\d{2}))?$/);
-  if (displayMatch) {
-    const [, day, month, year, hour = "00", minute = "00"] = displayMatch;
-    return `${day}-${month}-${year} ${hour}:${minute}`;
-  }
-
-  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
-  if (isoMatch) {
-    const [, year, month, day, hour = "00", minute = "00"] = isoMatch;
-    return `${day}-${month}-${year} ${hour}:${minute}`;
-  }
-
-  return text;
-}
-
-export function parseDateTimeInputValue(value) {
-  if (!value) return "";
-
-  const text = String(value).trim().replace(/\s*\(UTC.*\)$/i, "");
-  const displayMatch = text.match(/^(\d{2})-(\d{2})-(\d{4})(?:[ T](\d{2}):(\d{2}))?$/);
-  if (displayMatch) {
-    const [, day, month, year, hour = "00", minute = "00"] = displayMatch;
-    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)).toISOString();
-  }
-
-  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
-  if (isoMatch) {
-    const [, year, month, day, hour = "00", minute = "00"] = isoMatch;
-    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)).toISOString();
-  }
-
-  return text;
-}
-
-export function formatTimeInputValue(value) {
-  if (!value) return "";
-  const text = String(value);
-  const parts = text.match(/^(\d{2}):(\d{2})/);
-  return parts ? `${parts[1]}:${parts[2]}` : text;
-}
-
-export function parseTimeInputValue(value) {
-  if (!value) return "";
-  const text = String(value).trim();
-  const match = text.match(/^(\d{2}):(\d{2})/);
-  return match ? `${match[1]}:${match[2]}` : text;
-}
 
 export function todayIsoDate(now = new Date()) {
   const year = now.getFullYear();
@@ -302,11 +215,11 @@ function nextParityDate(recurrence, matcher) {
 }
 
 export function computeRecurringNextRunDate(recurrence) {
-  const startKey = parseDateInputValue(recurrence?.date_start);
-  if (!recurrence?.rule_type || !startKey || !recurrence.execution_time) {
+  if (!recurrence?.rule_type || !recurrence.date_start || !recurrence.execution_time) {
     return "";
   }
 
+  const startKey = recurrence.date_start;
   let candidateDate = startKey;
 
   switch (recurrence.rule_type) {
@@ -366,20 +279,5 @@ export function computeRecurringNextRunPreview(recurrence) {
 }
 
 export function datePartFromDateTimeInput(value) {
-  if (!value) return "";
-
-  const text = String(value).trim();
-  const displayMatch = text.match(/^(\d{2})-(\d{2})-(\d{4})/);
-  if (displayMatch) {
-    const [, day, month, year] = displayMatch;
-    return `${year}-${month}-${day}`;
-  }
-
-  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-  }
-
-  const parsed = parseDateInputValue(text);
-  return /^\d{4}-\d{2}-\d{2}$/.test(parsed) ? parsed : "";
+  return String(value || "").slice(0, 10);
 }

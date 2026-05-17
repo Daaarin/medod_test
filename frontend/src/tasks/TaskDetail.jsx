@@ -1,15 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  formatDate,
-  formatDateInputValue,
-  formatDateTime,
-  formatDateTimeInputValue,
-  formatUserLabel,
-  parseDateInputValue,
-  parseDateTimeInputValue,
-} from "../utils/display";
+import { formatDate, formatDateTime, formatUserLabel } from "../utils/display";
 import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
 
 function readError(error) {
@@ -30,15 +22,25 @@ function displayValue(value) {
 
 function toDateInput(value) {
   if (!value) return "";
-  return formatDateInputValue(value);
+  return String(value).slice(0, 10);
 }
 
 function toDateTimeInput(value) {
-  return formatDateTimeInputValue(value);
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const hours = String(parsed.getHours()).padStart(2, "0");
+  const minutes = String(parsed.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function localDateTimeToIso(value) {
-  return parseDateTimeInputValue(value);
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
 }
 
 function mutationError(error) {
@@ -165,7 +167,7 @@ export function TaskDetail({ api }) {
       api.updateTask(taskId, {
         name: editValues.name,
         description: editValues.description,
-        completion_date: editValues.completion_date ? parseDateInputValue(editValues.completion_date) : null,
+        completion_date: editValues.completion_date ? editValues.completion_date : null,
       }),
     onSuccess: async () => {
       setFeedback("Задача сохранена.");
@@ -363,11 +365,11 @@ export function TaskDetail({ api }) {
                 <label>
                   Дата завершения
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="ДД-ММ-ГГГГ"
+                    type="date"
                     value={editValues.completion_date}
-                    onChange={(event) => setEditValues((current) => ({ ...current, completion_date: event.target.value }))}
+                    onChange={(event) =>
+                      setEditValues((current) => ({ ...current, completion_date: event.target.value }))
+                    }
                   />
                 </label>
               </div>
@@ -484,9 +486,7 @@ export function TaskDetail({ api }) {
                   <label>
                     Перенести на
                     <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="ДД-ММ-ГГГГ ЧЧ:ММ"
+                      type="datetime-local"
                       value={postponedTo}
                       onChange={(event) => setPostponedTo(event.target.value)}
                     />

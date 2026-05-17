@@ -52,8 +52,8 @@ describe("TaskForm", () => {
     await user.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
     await user.selectOptions(screen.getByLabelText("Тип правила"), "specific_dates");
     await user.type(screen.getByLabelText("Конкретные даты"), "2026-05-16, 2026-05-20");
-    await user.type(screen.getByLabelText("Дата завершения"), "21-05-2026");
-    await user.type(screen.getByLabelText("Первый запуск"), "16-05-2026 09:30");
+    await user.type(screen.getByLabelText("Дата завершения"), "2026-05-21");
+    await user.type(screen.getByLabelText("Первый запуск"), "2026-05-16T09:30");
     await user.click(screen.getByLabelText("Назначить на меня"));
     await user.selectOptions(screen.getByLabelText("Пользователь для делегирования"), "11");
     await user.click(screen.getByRole("button", { name: "Создать задачу" }));
@@ -81,8 +81,8 @@ describe("TaskForm", () => {
 
     await user.type(screen.getByLabelText("Название"), "Weekly review");
     await user.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
-    await user.type(screen.getByLabelText("Дата завершения"), "15-05-2026");
-    await user.type(screen.getByLabelText("Первый запуск"), "16-05-2026 09:30");
+    await user.type(screen.getByLabelText("Дата завершения"), "2026-05-15");
+    await user.type(screen.getByLabelText("Первый запуск"), "2026-05-16T09:30");
     await user.click(screen.getByRole("button", { name: "Создать задачу" }));
 
     expect(onSubmit).not.toHaveBeenCalled();
