@@ -321,10 +321,33 @@ module Api
         end
 
         def task_list_payloads(tasks)
+          return occurrence_status_filtered_payloads(tasks) if occurrence_status_filter.present? && !date_filter_requested?
           return tasks.map { |task| task_payload(task) } unless date_filter_requested?
 
           range_start, range_end = date_range
           tasks.flat_map { |task| date_filtered_payloads(task, range_start, range_end) }
+        end
+
+        def occurrence_status_filtered_payloads(tasks)
+          tasks.flat_map do |task|
+            payloads = persisted_occurrence_payloads_for_status(task)
+
+            if occurrence_status_filter == "planned" && payloads.empty?
+              occurrence_time = TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: Time.current)
+              payloads << task_payload(task, projected_occurrence_time: occurrence_time) if occurrence_time.present?
+            end
+
+            payloads
+          end
+        end
+
+        def persisted_occurrence_payloads_for_status(task)
+          task.task_occurrences.filter_map do |occurrence|
+            next unless occurrence_status_matches?(occurrence.status)
+
+            occurrence_time = occurrence_filter_time(occurrence)
+            task_payload(task, occurrence: occurrence, occurrence_time: occurrence_time)
+          end
         end
 
         def date_filtered_payloads(task, range_start, range_end)

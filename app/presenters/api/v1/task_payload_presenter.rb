@@ -31,6 +31,9 @@ module Api
             creator_id: task.creator_id,
             responsible_id: task.responsible_id,
             delegated_user_id: task.delegated_user_id,
+            creator: user_payload(task.creator),
+            responsible: user_payload(task.responsible),
+            delegated_user: user_payload(task.delegated_user),
             first_run_at: task.first_run_at&.iso8601,
             next_run_at: task.next_run_at&.iso8601,
             accepted_at: task.accepted_at&.iso8601,
@@ -65,6 +68,22 @@ module Api
               description: tag.description,
               is_system_tag: tag.is_system_tag,
               deactivated_at: tag.deactivated_at&.iso8601
+            }
+          }
+        end
+
+        def user_payload(user)
+          return nil unless user
+
+          {
+            id: user.id,
+            type: "user",
+            attributes: {
+              email: user.email,
+              role: user.role,
+              name: user.name,
+              last_name: user.last_name,
+              display_name: user.display_name
             }
           }
         end

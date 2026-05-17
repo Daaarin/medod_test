@@ -33,6 +33,7 @@ class Task < ApplicationRecord
   validate :ownership_context_required
   validate :end_reason_required_for_final_tasks
   validate :one_time_tasks_must_not_have_recurrence_rule
+  validate :completion_date_must_follow_initial_schedule
   before_update :prevent_mutation_when_final
   before_destroy :prevent_destroy
 
@@ -73,6 +74,27 @@ class Task < ApplicationRecord
       return unless one_time? && recurrence_rule.present?
 
       errors.add(:recurrence_rule, "must be absent for one-time tasks")
+    end
+
+    def completion_date_must_follow_initial_schedule
+      return if completion_date.blank?
+
+      scheduled_times = [ first_run_at, next_run_at ]
+      scheduled_times << initial_recurring_run_at if recurring?
+      latest_schedule_time = scheduled_times.compact.max
+      return if latest_schedule_time.blank?
+      return if completion_date > latest_schedule_time.to_date
+
+      errors.add(:base, "completion_date must be after the first or next run")
+    end
+
+    def initial_recurring_run_at
+      return unless recurring? && recurrence_rule.present?
+
+      TaskScheduling::NextOccurrenceCalculator.call(
+        task: self,
+        from_time: first_run_at || recurrence_rule.date_start.beginning_of_day
+      )
     end
 
     def prevent_mutation_when_final

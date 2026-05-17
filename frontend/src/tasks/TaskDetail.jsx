@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { formatDate, formatDateTime, formatUserLabel } from "../utils/display";
 import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
 
 function readError(error) {
@@ -85,6 +86,18 @@ function normalizeOccurrence(occurrence) {
 
 function occurrenceFromPayload(payload) {
   return normalizeOccurrence(payload?.data?.occurrence ?? payload?.data?.attributes?.occurrence ?? null);
+}
+
+function summaryUser(user) {
+  return formatUserLabel(user);
+}
+
+function summaryDate(value) {
+  return value ? formatDate(value) : "—";
+}
+
+function summaryDateTime(value) {
+  return value ? formatDateTime(value) : "—";
 }
 
 export function TaskDetail({ api }) {
@@ -273,16 +286,16 @@ export function TaskDetail({ api }) {
     () => [
       ["Статус", labelFrom(statusLabels, attributes.status, "—")],
       ["Тип", labelFrom(taskKindLabels, attributes.task_kind, "—")],
-      ["Автор", attributes.creator_id],
-      ["Ответственный", attributes.responsible_id],
-      ["Делегировано", attributes.delegated_user_id],
-      ["Дата завершения", attributes.completion_date],
-      ["Первый запуск", attributes.first_run_at],
-      ["Следующий запуск", attributes.next_run_at],
-      ["Принята", attributes.accepted_at],
-      ["Отменена", attributes.cancelled_at],
-      ["Причина завершения", attributes.end_reason],
-      ["Причина отмены", attributes.cancellation_reason],
+      ["Автор", summaryUser(attributes.creator)],
+      ["Ответственный", summaryUser(attributes.responsible)],
+      ["Делегировано", summaryUser(attributes.delegated_user)],
+      ["Дата завершения", summaryDate(attributes.completion_date)],
+      ["Первый запуск", summaryDateTime(attributes.first_run_at)],
+      ["Следующий запуск", summaryDateTime(attributes.next_run_at)],
+      ["Принята", summaryDateTime(attributes.accepted_at)],
+      ["Отменена", summaryDateTime(attributes.cancelled_at)],
+      ["Причина завершения", displayValue(attributes.end_reason)],
+      ["Причина отмены", displayValue(attributes.cancellation_reason)],
     ],
     [attributes],
   );
@@ -379,10 +392,10 @@ export function TaskDetail({ api }) {
             {tagsQuery.isPending ? <div className="page-state">Загружаем теги...</div> : null}
             {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
             {attachedTags.length ? (
-              <div className="detail-inline-grid">
+              <div className="detail-tags-row">
                 {attachedTags.map((tag) => (
-                  <div className="row-between" key={tagId(tag)}>
-                    <div>
+                  <div className="detail-tag-item" key={tagId(tag)}>
+                    <div className="detail-tag-copy">
                       <strong>{tagName(tag)}</strong>
                       {tagDescription(tag) ? <p className="muted-line">{tagDescription(tag)}</p> : null}
                     </div>
@@ -448,15 +461,15 @@ export function TaskDetail({ api }) {
                 </div>
                 <div>
                   <dt>Запланировано</dt>
-                  <dd>{displayValue(occurrence.scheduled_at)}</dd>
+                  <dd>{summaryDateTime(occurrence.scheduled_at)}</dd>
                 </div>
                 <div>
                   <dt>Фактически</dt>
-                  <dd>{displayValue(occurrence.actual_at)}</dd>
+                  <dd>{summaryDateTime(occurrence.actual_at)}</dd>
                 </div>
                 <div>
                   <dt>Перенесено на</dt>
-                  <dd>{displayValue(occurrence.postponed_to)}</dd>
+                  <dd>{summaryDateTime(occurrence.postponed_to)}</dd>
                 </div>
                 <div>
                   <dt>Причина пропуска</dt>
@@ -464,7 +477,7 @@ export function TaskDetail({ api }) {
                 </div>
                 <div>
                   <dt>Сгенерировано</dt>
-                  <dd>{displayValue(occurrence.generated_at)}</dd>
+                  <dd>{summaryDateTime(occurrence.generated_at)}</dd>
                 </div>
               </dl>
 

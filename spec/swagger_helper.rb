@@ -31,6 +31,23 @@ RSpec.configure do |config|
               errors: { type: :array, items: { type: :string } }
             }
           },
+          user: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              type: { type: :string, enum: [ "user" ] },
+              attributes: {
+                type: :object,
+                properties: {
+                  email: { type: :string },
+                  role: { type: :string },
+                  name: { type: :string },
+                  last_name: { type: :string },
+                  display_name: { type: :string }
+                }
+              }
+            }
+          },
           task: {
             type: :object,
             properties: {
@@ -46,6 +63,9 @@ RSpec.configure do |config|
                   creator_id: { type: :integer, nullable: true },
                   responsible_id: { type: :integer, nullable: true },
                   delegated_user_id: { type: :integer, nullable: true },
+                  creator: { "$ref" => "#/components/schemas/user" },
+                  responsible: { "$ref" => "#/components/schemas/user" },
+                  delegated_user: { "$ref" => "#/components/schemas/user" },
                   completion_date: { type: :string, nullable: true },
                   deactivated_at: { type: :string, nullable: true }
                 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -18,7 +18,7 @@ function renderCalendar(api) {
 }
 
 describe("CalendarPage", () => {
-  it("loads the visible month and shows tasks on calendar days", async () => {
+  it("loads the visible month and shows previews with overflow markers", async () => {
     const api = {
       tasks: vi.fn().mockResolvedValue({
         data: [
@@ -30,6 +30,28 @@ describe("CalendarPage", () => {
                 id: 42,
                 status: "planned",
                 scheduled_at: "2026-05-17T09:30:00.000+03:00",
+              },
+            },
+          },
+          {
+            id: "8:43",
+            attributes: {
+              name: "Поздний обход",
+              occurrence: {
+                id: 43,
+                status: "planned",
+                scheduled_at: "2026-05-17T10:30:00.000+03:00",
+              },
+            },
+          },
+          {
+            id: "9:44",
+            attributes: {
+              name: "Ночная проверка",
+              occurrence: {
+                id: 44,
+                status: "planned",
+                scheduled_at: "2026-05-17T11:30:00.000+03:00",
               },
             },
           },
@@ -46,8 +68,17 @@ describe("CalendarPage", () => {
         occurrence_status: "planned",
       }),
     );
-    expect(await screen.findAllByText("Утренний обход")).toHaveLength(2);
-    expect(screen.getByText("09:30")).toBeInTheDocument();
+
+    const selectedDayButton = screen.getByRole("button", { name: /17/ });
+    await waitFor(() => expect(within(selectedDayButton).getByText("Утренний обход")).toBeInTheDocument());
+    expect(within(selectedDayButton).getByText("Поздний обход")).toBeInTheDocument();
+    expect(within(selectedDayButton).getByText("+1")).toBeInTheDocument();
+
+    expect(screen.getByText("Задачи дня")).toBeInTheDocument();
+    const agendaItems = await screen.findAllByRole("link", { name: /Утренний обход|Поздний обход|Ночная проверка/ });
+    expect(agendaItems[0]).toHaveTextContent("09:30 (UTC +3)");
+    expect(agendaItems[1]).toHaveTextContent("10:30 (UTC +3)");
+    expect(agendaItems[2]).toHaveTextContent("11:30 (UTC +3)");
   });
 
   it("moves to the next month", async () => {

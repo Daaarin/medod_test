@@ -25,7 +25,8 @@ module Api
             email: user.email,
             role: user.role,
             name: user.name,
-            last_name: user.last_name
+            last_name: user.last_name,
+            display_name: user.display_name
           }
         end
     end

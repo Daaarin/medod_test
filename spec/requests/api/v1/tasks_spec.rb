@@ -14,13 +14,13 @@ RSpec.describe "Api::V1::Tasks", type: :request do
 
     post "/api/v1/tasks",
          params: {
-           task: {
-             name: "Morning rounds",
-             description: "Check assigned patients",
-             completion_date: "2026-05-15",
-             assign_to_self: true,
-             first_run_at: "2026-05-15T09:30:00+03:00",
-             next_run_at: "2026-05-16T09:30:00+03:00"
+            task: {
+              name: "Morning rounds",
+              description: "Check assigned patients",
+              completion_date: "2026-05-17",
+              assign_to_self: true,
+              first_run_at: "2026-05-15T09:30:00+03:00",
+              next_run_at: "2026-05-16T09:30:00+03:00"
            }
          },
          headers: headers
@@ -34,6 +34,8 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(body.dig("data", "attributes", "task_kind")).to eq("one_time")
     expect(body.dig("data", "attributes", "creator_id")).to eq(user.id)
     expect(body.dig("data", "attributes", "responsible_id")).to eq(user.id)
+    expect(body.dig("data", "attributes", "creator", "attributes", "display_name")).to eq(user.display_name)
+    expect(body.dig("data", "attributes", "responsible", "attributes", "display_name")).to eq(user.display_name)
 
     get "/api/v1/tasks/#{task_id}", headers: headers
 
@@ -56,6 +58,7 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(JSON.parse(response.body).dig("data", "attributes", "status")).to eq("ongoing")
     expect(JSON.parse(response.body).dig("data", "attributes", "responsible_id")).to eq(user.id)
     expect(JSON.parse(response.body).dig("data", "attributes", "delegated_user_id")).to be_nil
+    expect(JSON.parse(response.body).dig("data", "attributes", "delegated_user")).to be_nil
 
     get "/api/v1/tasks",
         params: {
@@ -324,10 +327,23 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(response).to have_http_status(:bad_request)
     expect(JSON.parse(response.body)).to include("error" => "completion_date must be ISO 8601")
 
-    delegate = create_user(email: "delegate3@example.test", role: :nurse)
     post "/api/v1/tasks",
          params: {
            task: {
+             name: "Too early completion",
+             completion_date: "2026-05-14",
+             first_run_at: "2026-05-15T09:30:00+03:00"
+           }
+         },
+         headers: headers
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(JSON.parse(response.body).fetch("errors")).to include("completion_date must be after the first or next run")
+
+    delegate = create_user(email: "delegate3@example.test", role: :nurse)
+    post "/api/v1/tasks",
+         params: {
+            task: {
              name: "Unsafe state",
              status: "ongoing",
               responsible_id: create_user(email: "other2@example.test", role: :doctor).id,
@@ -396,6 +412,67 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(task.recurrence_rule.rule_type).to eq("every_n_days")
     expect(task.next_run_at).to eq(Time.zone.parse("2026-05-15 10:00"))
     expect(task.task_occurrences.pluck(:status, :scheduled_at)).to eq([ [ "planned", Time.zone.parse("2026-05-15 10:00") ] ])
+  end
+
+  it "derives the first recurring run when next_run_at is omitted" do
+    creator = create_user(email: "creator-recurring-derived@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "Recurring with derived run",
+             task_kind: "recurring",
+             assign_to_self: true,
+             recurrence_rule_attributes: {
+               rule_type: "every_n_days",
+               interval_value: 1,
+               execution_time: "12:00",
+               timezone: "Europe/Moscow",
+               date_start: "2026-05-15"
+             }
+           }
+         },
+         headers: auth_headers_for(creator)
+
+    expect(response).to have_http_status(:created)
+    task = Task.find(JSON.parse(response.body).dig("data", "id"))
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-15 12:00"))
+    expect(task.task_occurrences.pluck(:status, :scheduled_at)).to eq([ [ "planned", Time.zone.parse("2026-05-15 12:00") ] ])
+  end
+
+  it "filters planned tasks without a date range" do
+    user = create_user(email: "doctor-occurrence-no-range@example.test", role: :doctor)
+    create_task(
+      name: "Planned task",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :one_time,
+      first_run_at: Time.zone.parse("2026-05-20 09:30"),
+      next_run_at: Time.zone.parse("2026-05-20 09:30")
+    )
+    create_task(
+      name: "Executed task",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :one_time,
+      first_run_at: Time.zone.parse("2026-05-14 09:30"),
+      next_run_at: Time.zone.parse("2026-05-14 09:30")
+    ).task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-14 09:30"),
+      status: :executed,
+      actual_at: Time.zone.parse("2026-05-14 09:40")
+    )
+
+    get "/api/v1/tasks",
+        params: { occurrence_status: "planned" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    names = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "name") }
+    expect(names).to include("Planned task")
+    expect(names).not_to include("Executed task")
   end
 
   it "projects recurring occurrences in date-filtered task lists and filters by occurrence status" do

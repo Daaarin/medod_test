@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TaskFilters } from "./TaskFilters";
 import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
+import { formatDate, formatDateTime, formatUserLabel, todayIsoDate } from "../utils/display";
 
 function compactFilters(filters = {}) {
   return Object.fromEntries(
@@ -22,38 +23,12 @@ function readError(error) {
   return "Не удалось загрузить задачи";
 }
 
-function displayValue(value) {
-  return value ?? "—";
-}
-
-function formatDate(value) {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatDateTime(value) {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(parsed);
-}
-
 function rowTitle(task) {
   return task?.attributes?.name || "Без названия";
+}
+
+function userValue(user) {
+  return formatUserLabel(user);
 }
 
 export function TaskRow({ task }) {
@@ -82,11 +57,11 @@ export function TaskRow({ task }) {
         </span>
       </td>
       <td>{labelFrom(taskKindLabels, attributes.task_kind, "—")}</td>
-      <td className="task-meta">{displayValue(attributes.creator_id)}</td>
-      <td className="task-meta">{displayValue(attributes.responsible_id)}</td>
-      <td className="task-meta">{displayValue(attributes.delegated_user_id)}</td>
-      <td className="task-meta">{formatDate(planningTime)}</td>
-      <td className="task-meta">{displayValue(dueDate)}</td>
+      <td className="task-meta">{userValue(attributes.creator)}</td>
+      <td className="task-meta">{userValue(attributes.responsible)}</td>
+      <td className="task-meta">{userValue(attributes.delegated_user)}</td>
+      <td className="task-meta">{planningTime ? formatDateTime(planningTime) : "—"}</td>
+      <td className="task-meta">{dueDate ? formatDate(dueDate) : "—"}</td>
       <td className="task-actions">
         {baseTaskId ? (
           <Link className="inline-action" to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>
@@ -98,14 +73,8 @@ export function TaskRow({ task }) {
   );
 }
 
-function compactQueryFilters(filters, hasDateRange) {
-  const compacted = compactFilters(filters);
-
-  if (!hasDateRange) {
-    delete compacted.occurrence_status;
-  }
-
-  return compacted;
+function compactQueryFilters(filters) {
+  return compactFilters(filters);
 }
 
 export function TaskListPage({
@@ -116,9 +85,8 @@ export function TaskListPage({
   hiddenFilters = [],
   primaryAction = null,
 }) {
-  const [filters, setFilters] = useState(() => ({ ...initialFilters }));
-  const hasDateRange = Boolean(filters.from || filters.to);
-  const queryFilters = useMemo(() => compactQueryFilters(filters, hasDateRange), [filters, hasDateRange]);
+  const [filters, setFilters] = useState(() => ({ from: todayIsoDate(), ...initialFilters }));
+  const queryFilters = useMemo(() => compactQueryFilters(filters), [filters]);
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", queryFilters],

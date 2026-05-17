@@ -37,6 +37,33 @@ describe("TaskDetail", () => {
             description: "",
             status: "ongoing",
             task_kind: "recurring",
+            creator: {
+              id: 1,
+              attributes: {
+                role: "doctor",
+                last_name: "Иванов",
+                name: "Иван",
+                display_name: "Врач Иванов Иван",
+              },
+            },
+            responsible: {
+              id: 2,
+              attributes: {
+                role: "nurse",
+                last_name: "Петрова",
+                name: "Анна",
+                display_name: "Медсестра Петрова Анна",
+              },
+            },
+            delegated_user: {
+              id: 3,
+              attributes: {
+                role: "administrator",
+                last_name: "Сидоров",
+                name: "Алексей",
+                display_name: "Администратор Сидоров Алексей",
+              },
+            },
           },
         },
       }),
@@ -85,21 +112,16 @@ describe("TaskDetail", () => {
     });
 
     expect(await screen.findByRole("button", { name: "Выполнить" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Перенести" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Пропустить" })).toBeInTheDocument();
+    expect(screen.getByText("Врач Иванов Иван")).toBeInTheDocument();
+    expect(screen.getByText("Медсестра Петрова Анна")).toBeInTheDocument();
+    expect(screen.getByText("Администратор Сидоров Алексей")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Выполнить" }));
 
-    await waitFor(() =>
-      expect(api.executeOccurrence).toHaveBeenCalledWith(42),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Выполнить" })).not.toBeInTheDocument(),
-    );
-    await waitFor(() =>
-      expect(screen.getByText("Выполнено")).toBeInTheDocument(),
-    );
-    expect(screen.getByText("2026-05-16T09:45:00.000Z")).toBeInTheDocument();
+    await waitFor(() => expect(api.executeOccurrence).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Выполнить" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Выполнено")).toBeInTheDocument());
+    expect(screen.getByText("16-05-2026 09:45 (UTC +0)")).toBeInTheDocument();
   });
 
   it("sends null when a saved completion date is cleared", async () => {

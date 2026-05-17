@@ -3,6 +3,7 @@ Rails.application.routes.draw do
     namespace :v1 do
       post "auth/login", to: "auth#create"
       get "auth/me", to: "auth#show"
+      resources :users, only: %i[index]
       resources :tasks, only: %i[index show create update destroy]
       resources :tags, only: %i[index create update destroy]
       post "tasks/:task_id/tags/:tag_id", to: "task_tags#create"

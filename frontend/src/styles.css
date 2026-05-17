@@ -433,6 +433,81 @@ button:active {
   width: 100%;
 }
 
+.task-form {
+  gap: 1rem;
+}
+
+.task-assignee-row {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.task-assignee-row > label {
+  flex: 1 1 240px;
+}
+
+.task-delegate-select {
+  min-width: min(100%, 340px);
+}
+
+.switch-control {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.switch-control-body {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.55rem;
+}
+
+.switch-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-track {
+  background: rgba(100, 116, 139, 0.22);
+  border-radius: 999px;
+  height: 1.5rem;
+  position: relative;
+  transition: background-color 160ms ease;
+  width: 2.9rem;
+}
+
+.switch-thumb {
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+  height: 1.1rem;
+  left: 0.18rem;
+  position: absolute;
+  top: 0.2rem;
+  transition: transform 160ms ease;
+  width: 1.1rem;
+}
+
+.switch-control input:checked + .switch-track {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+}
+
+.switch-control input:checked + .switch-track .switch-thumb {
+  transform: translateX(1.35rem);
+}
+
+.recurrence-panel {
+  gap: 0.85rem;
+}
+
+.recurrence-preview input {
+  font-variant-numeric: tabular-nums;
+}
+
 label {
   display: grid;
   gap: 0.35rem;
@@ -783,6 +858,34 @@ button[disabled] {
   gap: 0.9rem;
 }
 
+.detail-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.detail-tag-item {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem 0.8rem;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.detail-tag-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.detail-tag-copy strong {
+  overflow-wrap: anywhere;
+}
+
 .detail-actions-stack {
   display: grid;
   gap: 0.65rem;
@@ -971,15 +1074,10 @@ button[disabled] {
   width: 1.9rem;
 }
 
-.calendar-count {
-  color: var(--accent-strong);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
 .calendar-preview {
-  display: grid;
-  gap: 0.22rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
   min-width: 0;
 }
 
@@ -992,6 +1090,12 @@ button[disabled] {
   padding: 0.24rem 0.38rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendar-preview-more {
+  background: rgba(15, 23, 42, 0.08) !important;
+  color: var(--text-strong) !important;
+  font-weight: 800;
 }
 
 .calendar-agenda {

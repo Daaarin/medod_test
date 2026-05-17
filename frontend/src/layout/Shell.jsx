@@ -1,21 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { formatUserLabel } from "../utils/display";
 
 const baseLinks = [
   { to: "/tasks", label: "Задачи" },
-  { to: "/delegated", label: "Делегированные" },
   { to: "/calendar", label: "Календарь" },
   { to: "/tags", label: "Теги" },
 ];
-
-function buildDisplayName(user) {
-  const parts = [user?.name, user?.last_name].filter(Boolean);
-  if (parts.length) {
-    return parts.join(" ");
-  }
-
-  return user?.email || "Вы вошли";
-}
 
 function formatRole(role) {
   if (!role) return "Роль не указана";
@@ -25,7 +16,8 @@ function formatRole(role) {
 export function Shell() {
   const auth = useAuth();
   const links = auth.isAdmin ? [...baseLinks, { to: "/admin", label: "Администрирование" }] : baseLinks;
-  const displayName = buildDisplayName(auth.user);
+  const formattedName = auth.user ? formatUserLabel(auth.user) : "";
+  const displayName = formattedName && formattedName !== "—" ? formattedName : auth.user?.email || "Вы вошли";
 
   return (
     <div className="app-shell">

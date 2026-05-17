@@ -23,6 +23,7 @@ export function createEndpoints(client) {
         body: jsonBody(credentials),
       }),
     me: () => client.request("/api/v1/auth/me"),
+    users: () => client.request("/api/v1/users"),
     health: () => client.request("/up"),
     tasks: (params) => client.request(`/api/v1/tasks${queryString(params)}`),
     task: (id) => client.request(`/api/v1/tasks/${id}`),

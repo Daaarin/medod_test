@@ -1,3 +1,7 @@
+import {
+  computeRecurringNextRunPreview,
+  getTimeZoneOptions,
+} from "../utils/display";
 import { labelFrom, parityLabels, recurrenceTypeLabels, recurrenceTypes } from "../tasks/taskConstants";
 
 function setNestedField(value, onChange, key, fieldValue) {
@@ -11,10 +15,7 @@ function ParitySelect({ label, rule, parity, onChange, fieldKey }) {
   return (
     <label>
       {label}
-      <select
-        value={parity || "even"}
-        onChange={(event) => setNestedField(rule, onChange, fieldKey, event.target.value)}
-      >
+      <select value={parity || "even"} onChange={(event) => setNestedField(rule, onChange, fieldKey, event.target.value)}>
         <option value="even">{parityLabels.even}</option>
         <option value="odd">{parityLabels.odd}</option>
       </select>
@@ -22,19 +23,18 @@ function ParitySelect({ label, rule, parity, onChange, fieldKey }) {
   );
 }
 
-export function RecurrenceFields({ value, onChange }) {
+export function RecurrenceFields({ value, onChange, nextRunPreview = "" }) {
   const ruleType = value.rule_type || "every_n_days";
+  const timeZoneOptions = getTimeZoneOptions();
+  const computedPreview = nextRunPreview || computeRecurringNextRunPreview(value);
 
   return (
-    <fieldset className="panel">
+    <fieldset className="panel recurrence-panel">
       <legend>Повторение</legend>
       <div className="form-grid">
         <label>
           Тип правила
-          <select
-            value={ruleType}
-            onChange={(event) => setNestedField(value, onChange, "rule_type", event.target.value)}
-          >
+          <select value={ruleType} onChange={(event) => setNestedField(value, onChange, "rule_type", event.target.value)}>
             {recurrenceTypes.map((type) => (
               <option key={type} value={type}>
                 {labelFrom(recurrenceTypeLabels, type)}
@@ -65,17 +65,25 @@ export function RecurrenceFields({ value, onChange }) {
           Время выполнения
           <input
             type="time"
-            value={value.execution_time || ""}
+            value={value.execution_time || "12:00"}
             onChange={(event) => setNestedField(value, onChange, "execution_time", event.target.value)}
           />
         </label>
 
         <label>
           Часовой пояс
-          <input
-            value={value.timezone || "Europe/Moscow"}
-            onChange={(event) => setNestedField(value, onChange, "timezone", event.target.value)}
-          />
+          <select value={value.timezone || "Europe/Moscow"} onChange={(event) => setNestedField(value, onChange, "timezone", event.target.value)}>
+            {timeZoneOptions.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="recurrence-preview">
+          Следующий запуск
+          <input type="text" value={computedPreview || "—"} disabled readOnly />
         </label>
       </div>
 
