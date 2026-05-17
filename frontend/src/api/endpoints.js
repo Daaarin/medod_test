@@ -22,6 +22,11 @@ export function createEndpoints(client) {
         method: "POST",
         body: jsonBody(credentials),
       }),
+    register: (credentials) =>
+      client.request("/api/v1/auth/register", {
+        method: "POST",
+        body: jsonBody(credentials),
+      }),
     me: () => client.request("/api/v1/auth/me"),
     users: () => client.request("/api/v1/users"),
     health: () => client.request("/up"),

@@ -36,12 +36,13 @@ class RecurrenceRuleDate < ApplicationRecord
     def run_date_must_respect_rule_window
       return if run_date.blank? || recurrence_rule.blank?
       return unless recurrence_rule.specific_dates?
+      effective_date_end = recurrence_rule.task&.effective_recurrence_end_date
 
       if recurrence_rule.date_start.present? && run_date < recurrence_rule.date_start
         errors.add(:run_date, "must be on or after date_start")
       end
 
-      if recurrence_rule.date_end.present? && run_date > recurrence_rule.date_end
+      if effective_date_end.present? && run_date > effective_date_end
         errors.add(:run_date, "must be on or before date_end")
       end
     end

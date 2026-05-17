@@ -5,6 +5,7 @@ import { createEndpoints } from "./api/endpoints";
 import { AdminPage } from "./admin/AdminPage";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
+import { RegisterPage } from "./auth/RegisterPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { getStoredToken, notifyUnauthorized } from "./auth/session";
 import { Shell } from "./layout/Shell";
@@ -86,6 +87,7 @@ export default function App() {
       <AuthProvider api={api}>
         <BrowserRouter>
           <Routes>
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<Shell />}>

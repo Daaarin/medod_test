@@ -74,6 +74,24 @@ describe("TaskForm", () => {
     expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("next_run_at");
   });
 
+  it("copies the first run into next_run_at for one-time tasks", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<TaskForm onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Название"), "Single visit");
+    await user.type(screen.getByLabelText("Первый запуск"), "2026-05-16T09:30");
+    await user.click(screen.getByRole("button", { name: "Создать задачу" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        first_run_at: "2026-05-16T06:30:00.000Z",
+        next_run_at: "2026-05-16T06:30:00.000Z",
+      }),
+    );
+  });
+
   it("blocks completion dates that are not after the initial schedule", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();

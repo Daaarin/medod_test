@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       post "auth/login", to: "auth#create"
+      post "auth/register", to: "auth#register"
       get "auth/me", to: "auth#show"
       resources :users, only: %i[index]
       resources :tasks, only: %i[index show create update destroy]

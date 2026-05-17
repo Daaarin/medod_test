@@ -48,10 +48,11 @@ function mutationError(error) {
 }
 
 function emptyEditState(attributes) {
+  const recurrenceEndDate = attributes?.recurrence_rule?.attributes?.date_end;
   return {
     name: attributes?.name || "",
     description: attributes?.description || "",
-    completion_date: toDateInput(attributes?.completion_date),
+    completion_date: toDateInput(attributes?.completion_date || recurrenceEndDate),
   };
 }
 
@@ -100,6 +101,10 @@ function summaryDateTime(value) {
   return value ? formatDateTime(value) : "—";
 }
 
+function recurrenceRule(attributes) {
+  return attributes?.recurrence_rule?.attributes || null;
+}
+
 export function TaskDetail({ api }) {
   const { taskId } = useParams();
   const location = useLocation();
@@ -124,6 +129,7 @@ export function TaskDetail({ api }) {
   const task = taskQuery.data?.data;
   const attributes = task?.attributes || {};
   const taskOccurrence = normalizeOccurrence(attributes.occurrence);
+  const taskRecurrenceRule = recurrenceRule(attributes);
   const attachedTags = taskTags(attributes);
   const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
   const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
@@ -168,6 +174,10 @@ export function TaskDetail({ api }) {
         name: editValues.name,
         description: editValues.description,
         completion_date: editValues.completion_date ? editValues.completion_date : null,
+        recurrence_rule_attributes:
+          attributes.task_kind === "recurring"
+            ? { id: taskRecurrenceRule?.id, date_end: editValues.completion_date || null }
+            : undefined,
       }),
     onSuccess: async () => {
       setFeedback("Задача сохранена.");
@@ -282,23 +292,33 @@ export function TaskDetail({ api }) {
   const canShowOccurrenceActions =
     Boolean(occurrence?.id) && !occurrence?.projected && ["planned", "postponed"].includes(occurrence?.status);
 
-  const summaryItems = useMemo(
-    () => [
+  const summaryItems = useMemo(() => {
+    const items = [
       ["Статус", labelFrom(statusLabels, attributes.status, "—")],
       ["Тип", labelFrom(taskKindLabels, attributes.task_kind, "—")],
       ["Автор", summaryUser(attributes.creator)],
       ["Ответственный", summaryUser(attributes.responsible)],
       ["Делегировано", summaryUser(attributes.delegated_user)],
-      ["Дата завершения", summaryDate(attributes.completion_date)],
+      ["Дата завершения", summaryDate(attributes.completion_date || taskRecurrenceRule?.date_end)],
       ["Первый запуск", summaryDateTime(attributes.first_run_at)],
       ["Следующий запуск", summaryDateTime(attributes.next_run_at)],
       ["Принята", summaryDateTime(attributes.accepted_at)],
       ["Отменена", summaryDateTime(attributes.cancelled_at)],
       ["Причина завершения", displayValue(attributes.end_reason)],
       ["Причина отмены", displayValue(attributes.cancellation_reason)],
-    ],
-    [attributes],
-  );
+      ];
+
+      if (taskRecurrenceRule) {
+        items.splice(
+          5,
+          0,
+          ["Повторение с", summaryDate(taskRecurrenceRule.date_start)],
+          ["Повторение до", summaryDate(taskRecurrenceRule.date_end || attributes.completion_date)],
+        );
+      }
+
+      return items;
+  }, [attributes, taskRecurrenceRule]);
 
   if (taskQuery.isPending) {
     return <div className="page-state">Загружаем задачу...</div>;

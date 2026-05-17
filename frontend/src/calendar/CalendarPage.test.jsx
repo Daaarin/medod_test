@@ -81,6 +81,38 @@ describe("CalendarPage", () => {
     expect(agendaItems[2]).toHaveTextContent("11:30 (UTC +3)");
   });
 
+  it("shows recurrence end dates in the day agenda", async () => {
+    const api = {
+      tasks: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: "10:50",
+            attributes: {
+              name: "Курс процедур",
+              recurrence_rule: {
+                id: "50",
+                type: "recurrence_rule",
+                attributes: {
+                  date_end: "2026-05-22",
+                },
+              },
+              occurrence: {
+                id: 50,
+                status: "planned",
+                scheduled_at: "2026-05-17T09:30:00.000+03:00",
+              },
+            },
+          },
+        ],
+      }),
+    };
+
+    renderCalendar(api);
+
+    const agendaItem = await screen.findByRole("link", { name: /Курс процедур/ });
+    expect(agendaItem).toHaveTextContent("Повторяется до 22-05-2026");
+  });
+
   it("moves to the next month", async () => {
     const api = {
       tasks: vi.fn().mockResolvedValue({ data: [] }),

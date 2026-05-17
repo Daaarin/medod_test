@@ -25,6 +25,27 @@ RSpec.describe TaskScheduling::CalendarProjection do
     )
   end
 
+  it "stops recurring projection at the task completion_date when recurrence_rule.date_end is missing" do
+    task = build_recurring_task(
+      rule_type: :every_n_days,
+      interval_value: 2,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+    task.completion_date = Date.new(2026, 5, 5)
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-05-01 00:00"),
+      range_end: zone.parse("2026-05-10 23:59")
+    )
+
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2026, 5, 1), Date.new(2026, 5, 3), Date.new(2026, 5, 5) ]
+    )
+  end
+
   it "returns projected entries for every_n_months within the requested range" do
     task = build_recurring_task(
       rule_type: :every_n_months,
@@ -134,6 +155,32 @@ RSpec.describe TaskScheduling::CalendarProjection do
       [ Date.new(2026, 5, 12), Date.new(2026, 5, 15), Date.new(2026, 5, 20) ]
     )
     expect(task.task_occurrences.count).to eq(before_count)
+  end
+
+  it "suppresses duplicate projected recurrence times and stops at date_end" do
+    task = build_recurring_task(
+      rule_type: :specific_dates,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1),
+      date_end: Date.new(2026, 5, 22),
+      recurrence_rule_dates_attributes: [
+        { run_date: Date.new(2026, 5, 20) },
+        { run_date: Date.new(2026, 5, 20) },
+        { run_date: Date.new(2026, 5, 22) },
+        { run_date: Date.new(2026, 5, 25) }
+      ]
+    )
+
+    projected = described_class.call(
+      task: task,
+      range_start: zone.parse("2026-05-01 00:00"),
+      range_end: zone.parse("2026-05-31 23:59")
+    )
+
+    expect(projected.map { |time| time.to_date }).to eq(
+      [ Date.new(2026, 5, 20), Date.new(2026, 5, 22) ]
+    )
   end
 
   it "keeps every_n_days projections aligned across a spring-forward DST transition" do

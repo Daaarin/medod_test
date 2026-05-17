@@ -31,13 +31,21 @@ function userValue(user) {
   return formatUserLabel(user);
 }
 
+function addDaysIsoDate(value, days) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  date.setDate(date.getDate() + days);
+  return todayIsoDate(date);
+}
+
 export function TaskRow({ task }) {
   const attributes = task?.attributes ?? {};
   const occurrence = attributes.occurrence ?? null;
   const baseTaskId = String(task?.id ?? "").split(":")[0];
   const occurrenceTime = occurrence?.occurs_at || occurrence?.scheduled_at;
   const planningTime = attributes.first_run_at || attributes.next_run_at || occurrenceTime;
-  const dueDate = attributes.completion_date;
+  const dueDate = attributes.completion_date || attributes.recurrence_rule?.attributes?.date_end;
+  const recurrenceEndDate = attributes.recurrence_rule?.attributes?.date_end || attributes.completion_date;
 
   return (
     <tr>
@@ -60,8 +68,17 @@ export function TaskRow({ task }) {
       <td className="task-meta">{userValue(attributes.creator)}</td>
       <td className="task-meta">{userValue(attributes.responsible)}</td>
       <td className="task-meta">{userValue(attributes.delegated_user)}</td>
-      <td className="task-meta">{planningTime ? formatDateTime(planningTime) : "—"}</td>
-      <td className="task-meta">{dueDate ? formatDate(dueDate) : "—"}</td>
+      <td className="task-meta">
+        <div className="task-meta-stack">
+          <span>{planningTime ? formatDateTime(planningTime) : "—"}</span>
+          {recurrenceEndDate ? <span className="task-subline">Повторяется до {formatDate(recurrenceEndDate)}</span> : null}
+        </div>
+      </td>
+      <td className="task-meta">
+        <div className="task-meta-stack">
+          <span>{dueDate ? formatDate(dueDate) : "—"}</span>
+        </div>
+      </td>
       <td className="task-actions">
         {baseTaskId ? (
           <Link className="inline-action" to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>
@@ -88,6 +105,8 @@ export function TaskListPage({
 }) {
   const [filters, setFilters] = useState(() => ({
     ...(defaultFromToday ? { from: todayIsoDate() } : {}),
+    ...(defaultFromToday ? { to: addDaysIsoDate(todayIsoDate(), 30) } : {}),
+    ...(defaultFromToday ? { include_unscheduled: true } : {}),
     ...initialFilters,
   }));
   const queryFilters = useMemo(() => compactQueryFilters(filters), [filters]);

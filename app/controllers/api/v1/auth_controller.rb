@@ -13,11 +13,31 @@ module Api
         end
       end
 
+      def register
+        unless User::SIGNUP_ROLES.include?(register_params[:role].to_s)
+          render json: { errors: [ "Role is not allowed" ] }, status: :unprocessable_entity
+          return
+        end
+
+        user = User.new(register_params.except(:password))
+        user.password = register_params[:password]
+
+        if user.save
+          render json: { token: user.issue_auth_token!, user: user_payload(user) }, status: :created
+        else
+          render json: { errors: user.errors.full_messages }, status: :unprocessable_entity
+        end
+      end
+
       def show
         render json: { user: user_payload(current_user) }, status: :ok
       end
 
       private
+
+        def register_params
+          params.permit(:email, :password, :name, :last_name, :role)
+        end
 
         def user_payload(user)
           {

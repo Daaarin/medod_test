@@ -27,9 +27,10 @@ module Api
         task = Task.new(create_task_params)
         task.creator = current_user
         task.task_kind = "one_time" if task.task_kind.blank?
-        task.status = initial_status_for(task, assign_to_self: assign_to_self?)
         task.responsible = current_user if assign_to_self?
         task.responsible = nil if task.delegated_user_id.present?
+        normalize_initial_schedule!(task)
+        task.status = initial_status_for(task, assign_to_self: assign_to_self?)
 
         if valid_assignees?(task) && valid_initial_occurrence_context?(task) && create_task_with_initial_occurrence(task)
           render json: { data: task_payload(task) }, status: :created
@@ -169,6 +170,13 @@ module Api
                 )
               )
               OR (
+                :include_unscheduled = TRUE
+                AND tasks.task_kind = 'one_time'
+                AND tasks.first_run_at IS NULL
+                AND tasks.next_run_at IS NULL
+                AND tasks.completion_date IS NULL
+              )
+              OR (
                 tasks.task_kind = 'recurring'
                 AND recurrence_rules.id IS NULL
                 AND tasks.next_run_at BETWEEN :range_start AND :range_end
@@ -177,7 +185,8 @@ module Api
             range_start: range_start,
             range_end: range_end,
             range_start_date: range_start_date,
-            range_end_date: range_end_date
+            range_end_date: range_end_date,
+            include_unscheduled: include_unscheduled?
           )
         end
 
@@ -232,11 +241,19 @@ module Api
         end
 
         def update_task_params
-          params.fetch(:task, {}).permit(
+          permitted = params.fetch(:task, {}).permit(
             :name,
             :description,
-            :completion_date
+            :completion_date,
+            recurrence_rule_attributes: [ :id, :date_end ]
           )
+
+          recurrence_rule_params = permitted[:recurrence_rule_attributes]
+          if recurrence_rule_params.present? && recurrence_rule_params[:id].blank? && @task&.recurrence_rule&.id.present?
+            recurrence_rule_params[:id] = @task.recurrence_rule.id
+          end
+
+          permitted
         end
 
         def assign_to_self?
@@ -245,9 +262,23 @@ module Api
 
         def initial_status_for(task, assign_to_self:)
           return "pending_acceptance" if task.delegated_user_id.present?
-          return "ongoing" if assign_to_self || task.valid?
+          return "ongoing" if assign_to_self
 
           "draft"
+        end
+
+        def normalize_initial_schedule!(task)
+          if task.one_time?
+            initial_run_at = task.first_run_at || task.next_run_at
+            task.first_run_at ||= initial_run_at
+            task.next_run_at ||= initial_run_at
+            return
+          end
+
+          return unless task.recurring?
+
+          task.next_run_at ||= initial_recurring_run_at(task)
+          task.first_run_at ||= task.next_run_at
         end
 
         def create_task_with_initial_occurrence(task)
@@ -275,6 +306,7 @@ module Api
 
         def initial_recurring_run_at(task)
           return unless task.recurring?
+          return if task.recurrence_rule.blank? || task.recurrence_rule.date_start.blank?
 
           TaskScheduling::NextOccurrenceCalculator.call(
             task: task,
@@ -283,7 +315,7 @@ module Api
         end
 
         def valid_task_date_params?(action)
-          allowed_keys = action == :create ? %i[completion_date first_run_at next_run_at] : %i[completion_date]
+          allowed_keys = action == :create ? [ :completion_date, :first_run_at, :next_run_at, [ :recurrence_rule_attributes, :date_end ] ] : [ :completion_date, [ :recurrence_rule_attributes, :date_end ] ]
 
           allowed_keys.all? do |key|
             valid_task_date_param?(key)
@@ -291,15 +323,24 @@ module Api
         end
 
         def valid_task_date_param?(key)
-          value = params.dig(:task, key)
+          path = key.is_a?(Array) ? [ :task, *key ] : [ :task, key ]
+          value = params.dig(*path)
           return true if value.blank?
 
-          parser = key == :completion_date ? Date.method(:iso8601) : Time.zone.method(:iso8601)
+          parser = date_param?(key) ? Date.method(:iso8601) : Time.zone.method(:iso8601)
           parser.call(value.to_s)
           true
         rescue ArgumentError, TypeError
-          render json: { error: "#{key} must be ISO 8601" }, status: :bad_request
+          render json: { error: "#{date_param?(key) ? key_name(key) : key_name(key)} must be ISO 8601" }, status: :bad_request
           false
+        end
+
+        def date_param?(key)
+          key == :completion_date || key == [ :recurrence_rule_attributes, :date_end ]
+        end
+
+        def key_name(key)
+          key.is_a?(Array) ? key.join(".") : key.to_s
         end
 
         def valid_assignees?(task)
@@ -354,6 +395,7 @@ module Api
           payloads = persisted_occurrence_payloads(task, range_start, range_end)
           payloads += projected_occurrence_payloads(task, range_start, range_end)
           payloads << task_payload(task) if payloads.empty? && completion_date_in_range?(task, range_start, range_end) && occurrence_status_filter.blank?
+          payloads << task_payload(task) if payloads.empty? && include_unscheduled? && unscheduled_one_time_task?(task) && occurrence_status_filter.blank?
 
           payloads
         end
@@ -407,6 +449,14 @@ module Api
 
         def completion_date_in_range?(task, range_start, range_end)
           task.completion_date.present? && task.completion_date.between?(range_start.to_date, range_end.to_date)
+        end
+
+        def unscheduled_one_time_task?(task)
+          task.one_time? && task.first_run_at.blank? && task.next_run_at.blank? && task.completion_date.blank?
+        end
+
+        def include_unscheduled?
+          ActiveModel::Type::Boolean.new.cast(params[:include_unscheduled])
         end
 
         def occurrence_status_filter

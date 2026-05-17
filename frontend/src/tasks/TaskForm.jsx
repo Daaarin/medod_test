@@ -100,14 +100,18 @@ export function TaskForm({
   }
 
   const payload = useMemo(() => {
+    const firstRunAt = localDateTimeToIso(task.first_run_at) || undefined;
+    const nextRunAt = task.task_kind === "one_time" ? firstRunAt : undefined;
     const base = {
       ...task,
       completion_date: task.completion_date || undefined,
-      first_run_at: localDateTimeToIso(task.first_run_at),
+      first_run_at: firstRunAt,
+      next_run_at: nextRunAt,
       assign_to_self: Boolean(task.assign_to_self),
     };
 
-    if (base.first_run_at === "") delete base.first_run_at;
+    if (base.first_run_at === undefined) delete base.first_run_at;
+    if (base.next_run_at === undefined) delete base.next_run_at;
 
     if (task.assign_to_self || !task.delegated_user_id) {
       delete base.delegated_user_id;

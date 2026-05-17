@@ -78,6 +78,7 @@ class Task < ApplicationRecord
   validate :ownership_context_required
   validate :end_reason_required_for_final_tasks
   validate :one_time_tasks_must_not_have_recurrence_rule
+  before_validation :normalize_recurring_end_date
   validate :completion_date_must_follow_initial_schedule
   before_update :prevent_mutation_when_final
   before_destroy :prevent_destroy
@@ -101,6 +102,14 @@ class Task < ApplicationRecord
     )
   end
 
+  def effective_completion_date
+    completion_date || recurrence_rule&.date_end
+  end
+
+  def effective_recurrence_end_date
+    recurrence_rule&.date_end || completion_date
+  end
+
   private
 
     def end_reason_required_for_final_tasks
@@ -121,6 +130,27 @@ class Task < ApplicationRecord
       errors.add(:recurrence_rule, "must be absent for one-time tasks")
     end
 
+    def normalize_recurring_end_date
+      return unless recurring? && recurrence_rule.present?
+
+      completion_date_changed = will_save_change_to_completion_date?
+      recurrence_end_changed = recurrence_rule.will_save_change_to_date_end?
+      return unless completion_date_changed || recurrence_end_changed
+
+      completion_end_date = completion_date
+      recurrence_end_date = recurrence_rule.date_end
+
+      if completion_date_changed && recurrence_end_changed && completion_end_date != recurrence_end_date
+        errors.add(:completion_date, "must match recurrence end date")
+        errors.add(:base, "recurrence_rule.date_end must match completion_date")
+        throw :abort
+      end
+
+      effective_end_date = completion_date_changed ? completion_end_date : recurrence_end_date
+      self.completion_date = effective_end_date
+      recurrence_rule.date_end = effective_end_date
+    end
+
     def completion_date_must_follow_initial_schedule
       return if completion_date.blank?
 
@@ -135,6 +165,7 @@ class Task < ApplicationRecord
 
     def initial_recurring_run_at
       return unless recurring? && recurrence_rule.present?
+      return if recurrence_rule.date_start.blank?
 
       TaskScheduling::NextOccurrenceCalculator.call(
         task: self,

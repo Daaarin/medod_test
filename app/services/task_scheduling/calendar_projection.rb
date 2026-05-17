@@ -39,7 +39,8 @@ module TaskScheduling
         return [] unless zone
 
         current_times = persisted_current_occurrence_times
-        projected = current_times.select { |time| within_range?(time, range_start, range_end) }
+        projected = current_times.select { |time| within_range?(time, range_start, range_end) }.uniq
+        seen = projected.index_with { |time| true }
         cursor = recurrence_cursor(zone, current_times)
         range_end_in_zone = range_end.in_time_zone(zone)
 
@@ -47,8 +48,10 @@ module TaskScheduling
           occurrence = TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: cursor)
           break unless occurrence
           break if occurrence > range_end_in_zone
+          break if seen[occurrence]
 
           projected << occurrence
+          seen[occurrence] = true
           cursor = occurrence + 1.second
         end
 

@@ -45,6 +45,39 @@ RSpec.describe "API V1 Swagger", type: :request do
     end
   end
 
+  path "/api/v1/auth/register" do
+    post "Register a new non-admin user" do
+      tags "Auth"
+      consumes "application/json"
+      produces "application/json"
+      parameter name: :registration, in: :body, schema: {
+        type: :object,
+        required: %w[email password role name last_name],
+        properties: {
+          email: { type: :string },
+          password: { type: :string },
+          role: { type: :string, enum: %w[doctor nurse] },
+          name: { type: :string },
+          last_name: { type: :string }
+        }
+      }
+
+      response "201", "registered" do
+        let(:registration) do
+          {
+            email: "swagger-register@example.test",
+            password: "password123",
+            role: "doctor",
+            name: "Swagger",
+            last_name: "User"
+          }
+        end
+
+        run_test!
+      end
+    end
+  end
+
   path "/api/v1/auth/me" do
     get "Return the current authenticated user" do
       tags "Auth"

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatDateTime } from "../utils/display";
+import { formatDate, formatDateTime } from "../utils/display";
 import { labelFrom, occurrenceStatusLabels } from "../tasks/taskConstants";
 
 const weekdayLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -77,6 +77,13 @@ function occurrenceTimeLabel(task) {
   const occurrence = occurrenceFor(task);
   const value = occurrence?.occurs_at || occurrence?.scheduled_at;
   return value ? formatDateTime(value).split(" ").slice(1).join(" ") : "";
+}
+
+function recurrenceEndLabel(task) {
+  const attributes = task?.attributes ?? {};
+  const recurrenceRule = attributes.recurrence_rule?.attributes ?? null;
+  const endDate = recurrenceRule?.date_end || attributes.completion_date;
+  return endDate ? `Повторяется до ${formatDate(endDate)}` : "";
 }
 
 function sortTasksByOccurrenceTime(tasks) {
@@ -200,6 +207,7 @@ export function CalendarPage({ api, initialDate = new Date() }) {
             {selectedTasks.map((task) => {
               const baseTaskId = String(task?.id ?? "").split(":")[0];
               const occurrence = occurrenceFor(task);
+              const recurrenceEnd = recurrenceEndLabel(task);
               return (
                 <Link
                   className="agenda-item"
@@ -209,7 +217,8 @@ export function CalendarPage({ api, initialDate = new Date() }) {
                 >
                   <span className="agenda-time">{occurrenceTimeLabel(task) || "Весь день"}</span>
                   <strong>{taskTitle(task)}</strong>
-                  <span>{labelFrom(occurrenceStatusLabels, occurrence?.status, "Запланировано")}</span>
+                  <span className="agenda-status">{labelFrom(occurrenceStatusLabels, occurrence?.status, "Запланировано")}</span>
+                  {recurrenceEnd ? <span className="agenda-subline">{recurrenceEnd}</span> : null}
                 </Link>
               );
             })}

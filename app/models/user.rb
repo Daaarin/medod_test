@@ -29,6 +29,7 @@ class User < ApplicationRecord
     doctor: "Врач",
     nurse: "Медсестра"
   }.freeze
+  SIGNUP_ROLES = %w[doctor nurse].freeze
 
   has_many :created_tasks, class_name: "Task", foreign_key: :creator_id, inverse_of: :creator, dependent: :restrict_with_exception
   has_many :responsible_tasks, class_name: "Task", foreign_key: :responsible_id, inverse_of: :responsible, dependent: :restrict_with_exception

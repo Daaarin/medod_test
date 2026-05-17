@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { AuthPage } from "./AuthPage";
+import { PasswordField } from "./PasswordField";
 
 function readError(error) {
   if (error?.messages?.length) {
@@ -44,34 +46,32 @@ export function LoginPage() {
   const error = localError || auth.error;
 
   return (
-    <main className="login-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <p className="eyebrow">Medods Tasks</p>
-        <h1>Вход</h1>
-        <p className="header-copy">Рабочее пространство для задач, календаря и тегов.</p>
-        {error ? <div className="alert error">{error}</div> : null}
-        <label>
-          Email
+    <AuthPage
+      className="auth-page-login"
+      title="Вход"
+      subtitle="Рабочее пространство для задач, календаря и тегов."
+    >
+      <form className="auth-form auth-form-login" onSubmit={handleSubmit}>
+        {error ? <div className="alert error auth-error">{error}</div> : null}
+        <label className="auth-field">
+          <span>Email</span>
           <input
             autoComplete="email"
+            placeholder="example@medods.com"
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
           />
         </label>
-        <label>
-          Пароль
-          <input
-            autoComplete="current-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </label>
-        <button type="submit">Войти</button>
+        <PasswordField value={password} onChange={(event) => setPassword(event.target.value)} />
+        <button type="submit" className="auth-primary">
+          Войти
+        </button>
+        <Link to="/register" className="auth-secondary">
+          Создать аккаунт
+        </Link>
       </form>
-    </main>
+    </AuthPage>
   );
 }

@@ -24,7 +24,7 @@ function renderTasks(api) {
 }
 
 describe("TaskListPage", () => {
-  it("defaults the from filter to today and keeps occurrence filters without a date range", async () => {
+  it("defaults the date window to today through the next 31 days and keeps occurrence filters", async () => {
     const api = {
       tasks: vi.fn().mockResolvedValue({ data: [] }),
     };
@@ -36,6 +36,7 @@ describe("TaskListPage", () => {
       expect(api.tasks).toHaveBeenLastCalledWith(
         expect.objectContaining({
           from: expect.any(String),
+          to: expect.any(String),
         }),
       ),
     );
@@ -111,5 +112,34 @@ describe("TaskListPage", () => {
     expect(screen.getByText("Медсестра Петрова Анна")).toBeInTheDocument();
     expect(screen.getByText("17-05-2026 09:30 (UTC +3)")).toBeInTheDocument();
     expect(screen.getByText("18-05-2026")).toBeInTheDocument();
+  });
+
+  it("shows recurrence end dates in the task rows", async () => {
+    const api = {
+      tasks: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: "12",
+            attributes: {
+              name: "Курс процедур",
+              status: "ongoing",
+              task_kind: "recurring",
+              recurrence_rule: {
+                id: "51",
+                type: "recurrence_rule",
+                attributes: {
+                  date_end: "2026-05-22",
+                },
+              },
+              next_run_at: "2026-05-17T09:30:00.000+03:00",
+            },
+          },
+        ],
+      }),
+    };
+
+    renderTasks(api);
+
+    expect(await screen.findByText("Повторяется до 22-05-2026")).toBeInTheDocument();
   });
 });

@@ -164,6 +164,7 @@ describe("TaskDetail", () => {
           name: "Morning rounds",
           description: "",
           completion_date: null,
+          recurrence_rule_attributes: { date_end: null },
         }),
       ),
     );
