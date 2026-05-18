@@ -164,7 +164,59 @@ describe("TaskDetail", () => {
           name: "Morning rounds",
           description: "",
           completion_date: null,
-          recurrence_rule_attributes: { date_end: null },
+        }),
+      ),
+    );
+    expect(api.updateTask.mock.calls[0][1]).not.toHaveProperty("recurrence_rule_attributes");
+  });
+
+  it("keeps the recurrence end-date payload when the task has a persisted recurrence rule", async () => {
+    const user = userEvent.setup();
+    const api = {
+      task: vi.fn().mockResolvedValue({
+        data: {
+          id: "123",
+          attributes: {
+            name: "Morning rounds",
+            description: "",
+            status: "ongoing",
+            task_kind: "recurring",
+            completion_date: "2026-05-16",
+            recurrence_rule: {
+              id: "88",
+              attributes: {
+                date_end: "2026-05-16",
+              },
+            },
+          },
+        },
+      }),
+      tags: vi.fn().mockResolvedValue({ data: [] }),
+      updateTask: vi.fn().mockResolvedValue({ data: { id: "123", attributes: {} } }),
+      acceptTask: vi.fn(),
+      declineTask: vi.fn(),
+      deactivateTask: vi.fn(),
+      postponeOccurrence: vi.fn(),
+      executeOccurrence: vi.fn(),
+      skipOccurrence: vi.fn(),
+      attachTag: vi.fn(),
+      detachTag: vi.fn(),
+    };
+
+    renderTaskDetail(api);
+
+    const completionDateInput = await screen.findByLabelText("Дата завершения");
+    await user.clear(completionDateInput);
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() =>
+      expect(api.updateTask).toHaveBeenCalledWith(
+        "123",
+        expect.objectContaining({
+          name: "Morning rounds",
+          description: "",
+          completion_date: null,
+          recurrence_rule_attributes: { id: "88", date_end: null },
         }),
       ),
     );

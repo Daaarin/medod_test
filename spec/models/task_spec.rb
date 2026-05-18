@@ -223,6 +223,28 @@ RSpec.describe Task, type: :model do
     expect(task.errors[:recurrence_rule]).to include("must be absent for one-time tasks")
   end
 
+  it "allows a recurring completion date that matches the first scheduled run" do
+    responsible = build_user(email: "responsible-recurring@example.test", role: :doctor)
+    task = described_class.new(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Recurring visit",
+      responsible: responsible,
+      first_run_at: Time.zone.parse("2026-05-15 12:00"),
+      next_run_at: Time.zone.parse("2026-05-15 12:00"),
+      completion_date: Date.new(2026, 5, 15)
+    )
+    task.build_recurrence_rule(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "12:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 15)
+    )
+
+    expect(task).to be_valid
+  end
+
   def build_user(email:, role:)
     User.create!(
       email:,

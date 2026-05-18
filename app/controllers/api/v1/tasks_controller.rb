@@ -249,8 +249,12 @@ module Api
           )
 
           recurrence_rule_params = permitted[:recurrence_rule_attributes]
-          if recurrence_rule_params.present? && recurrence_rule_params[:id].blank? && @task&.recurrence_rule&.id.present?
-            recurrence_rule_params[:id] = @task.recurrence_rule.id
+          if recurrence_rule_params.present?
+            if @task&.recurrence_rule&.id.present?
+              recurrence_rule_params[:id] = @task.recurrence_rule.id if recurrence_rule_params[:id].blank?
+            else
+              permitted.delete(:recurrence_rule_attributes)
+            end
           end
 
           permitted
@@ -373,7 +377,7 @@ module Api
           tasks.flat_map do |task|
             payloads = persisted_occurrence_payloads_for_status(task)
 
-            if occurrence_status_filter == "planned" && payloads.empty?
+            if occurrence_status_filter == "planned" && payloads.empty? && task.active?
               occurrence_time = TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: Time.current)
               payloads << task_payload(task, projected_occurrence_time: occurrence_time) if occurrence_time.present?
             end

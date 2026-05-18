@@ -53,8 +53,8 @@ function dateOrderError(completionDate, firstRunAt, nextRunDate) {
   const relevantDates = [firstRunKey, nextRunKey].filter(Boolean);
 
   if (!relevantDates.length) return "";
-  if (relevantDates.some((dateKey) => completionKey <= dateKey)) {
-    return "Дата завершения должна быть позже первого и следующего запуска";
+  if (relevantDates.some((dateKey) => completionKey < dateKey)) {
+    return "Дата завершения должна быть не раньше первого или следующего запуска";
   }
 
   return "";

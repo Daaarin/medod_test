@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Auth", type: :request do
+  before do
+    host! "localhost"
+  end
+
   it "throttles repeated failed login attempts from the same IP and normalized email" do
     User.create!(
       email: "doctor@example.test",

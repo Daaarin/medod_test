@@ -19,10 +19,11 @@ RSpec.describe UpdateTasksForPublicApi, type: :migration do
 
     expect(task.responsible_id).to be_nil
 
-    described_class.new.send(:backfill_responsible_ids_for_rollback!)
+    expect do
+      described_class.new.send(:backfill_responsible_ids_for_rollback!)
+    end.not_to change { Task.where(id: task.id).count }
 
     expect(task.reload.responsible_id).to eq(creator.id)
-    expect(Task.count).to eq(1)
   end
 
   it "creates non-guessable placeholder users for legacy responsible ids" do

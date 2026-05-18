@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Users", type: :request do
+  before do
+    host! "localhost"
+  end
+
   it "returns selectable users for administrators" do
     admin = create_user(email: "admin-users@example.test", role: :administrator)
     doctor = create_user(email: "doctor-users@example.test", role: :doctor)
@@ -11,9 +15,12 @@ RSpec.describe "Api::V1::Users", type: :request do
     expect(response).to have_http_status(:ok)
     payload = JSON.parse(response.body)
     display_names = payload.fetch("data").map { |item| item.dig("attributes", "display_name") }
+    display_name_positions = display_names.each_with_index.to_h
 
     expect(display_names).to include(doctor.display_name, nurse.display_name)
-    expect(display_names.first).to eq(admin.display_name)
+    expect(display_names).to include(admin.display_name)
+    expect(display_name_positions.fetch(admin.display_name)).to be < display_name_positions.fetch(doctor.display_name)
+    expect(display_name_positions.fetch(admin.display_name)).to be < display_name_positions.fetch(nurse.display_name)
   end
 
   it "forbids non administrators from listing users" do

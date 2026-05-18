@@ -158,9 +158,9 @@ class Task < ApplicationRecord
       scheduled_times << initial_recurring_run_at if recurring?
       latest_schedule_time = scheduled_times.compact.max
       return if latest_schedule_time.blank?
-      return if completion_date > latest_schedule_time.to_date
+      return if completion_date >= latest_schedule_time.to_date
 
-      errors.add(:base, "completion_date must be after the first or next run")
+      errors.add(:base, "completion_date must be on or after the first or next run")
     end
 
     def initial_recurring_run_at

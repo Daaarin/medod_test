@@ -92,7 +92,7 @@ describe("TaskForm", () => {
     );
   });
 
-  it("blocks completion dates that are not after the initial schedule", async () => {
+  it("blocks completion dates before the initial schedule", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<TaskForm onSubmit={onSubmit} />);
@@ -104,6 +104,22 @@ describe("TaskForm", () => {
     await user.click(screen.getByRole("button", { name: "Создать задачу" }));
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText("Дата завершения должна быть позже первого и следующего запуска")).toBeInTheDocument();
+    expect(screen.getByText("Дата завершения должна быть не раньше первого или следующего запуска")).toBeInTheDocument();
+  });
+
+  it("allows a one-day recurring series when the completion date matches the first run", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<TaskForm onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Название"), "One-day review");
+    await user.selectOptions(screen.getByLabelText("Тип задачи"), "recurring");
+    await user.type(screen.getByLabelText("Дата завершения"), "2026-05-15");
+    await user.type(screen.getByLabelText("Первый запуск"), "2026-05-15T09:30");
+    await user.type(screen.getByLabelText("Дата начала"), "2026-05-15");
+    await user.click(screen.getByRole("button", { name: "Создать задачу" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Дата завершения должна быть не раньше первого или следующего запуска")).not.toBeInTheDocument();
   });
 });

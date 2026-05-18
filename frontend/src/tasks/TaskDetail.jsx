@@ -102,7 +102,7 @@ function summaryDateTime(value) {
 }
 
 function recurrenceRule(attributes) {
-  return attributes?.recurrence_rule?.attributes || null;
+  return attributes?.recurrence_rule || null;
 }
 
 export function TaskDetail({ api }) {
@@ -130,6 +130,7 @@ export function TaskDetail({ api }) {
   const attributes = task?.attributes || {};
   const taskOccurrence = normalizeOccurrence(attributes.occurrence);
   const taskRecurrenceRule = recurrenceRule(attributes);
+  const hasPersistedRecurrenceRule = Boolean(taskRecurrenceRule?.id);
   const attachedTags = taskTags(attributes);
   const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
   const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
@@ -174,10 +175,9 @@ export function TaskDetail({ api }) {
         name: editValues.name,
         description: editValues.description,
         completion_date: editValues.completion_date ? editValues.completion_date : null,
-        recurrence_rule_attributes:
-          attributes.task_kind === "recurring"
-            ? { id: taskRecurrenceRule?.id, date_end: editValues.completion_date || null }
-            : undefined,
+        ...(attributes.task_kind === "recurring" && hasPersistedRecurrenceRule
+          ? { recurrence_rule_attributes: { id: taskRecurrenceRule.id, date_end: editValues.completion_date || null } }
+          : {}),
       }),
     onSuccess: async () => {
       setFeedback("Задача сохранена.");
@@ -312,8 +312,8 @@ export function TaskDetail({ api }) {
         items.splice(
           5,
           0,
-          ["Повторение с", summaryDate(taskRecurrenceRule.date_start)],
-          ["Повторение до", summaryDate(taskRecurrenceRule.date_end || attributes.completion_date)],
+          ["Повторение с", summaryDate(taskRecurrenceRule.attributes?.date_start)],
+          ["Повторение до", summaryDate(taskRecurrenceRule.attributes?.date_end || attributes.completion_date)],
         );
       }
 

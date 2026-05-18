@@ -162,6 +162,36 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(Task.find_by(name: "Recurring first run only")).to be_nil
   end
 
+  it "allows legacy recurring tasks without a persisted recurrence rule to update core fields" do
+    creator = create_user(email: "creator-legacy-recurring@example.test", role: :doctor)
+    task = create_task(
+      name: "Legacy recurring",
+      creator: creator,
+      responsible: creator,
+      status: :ongoing,
+      task_kind: :recurring,
+      next_run_at: Time.zone.parse("2026-05-16 08:00")
+    )
+
+    patch "/api/v1/tasks/#{task.id}",
+          params: {
+            task: {
+              name: "Legacy recurring updated",
+              description: "Updated description",
+              recurrence_rule_attributes: {
+                date_end: "2026-05-22"
+              }
+            }
+          },
+          headers: auth_headers_for(creator)
+
+    expect(response).to have_http_status(:ok)
+    task.reload
+    expect(task.name).to eq("Legacy recurring updated")
+    expect(task.description).to eq("Updated description")
+    expect(task.recurrence_rule).to be_nil
+  end
+
   it "enforces bonded visibility for staff and broader access for administrators" do
     admin = create_user(email: "admin@example.test", role: :administrator)
     doctor = create_user(email: "doctor@example.test", role: :doctor)
@@ -380,7 +410,7 @@ RSpec.describe "Api::V1::Tasks", type: :request do
          headers: headers
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(JSON.parse(response.body).fetch("errors")).to include("completion_date must be after the first or next run")
+    expect(JSON.parse(response.body).fetch("errors")).to include("completion_date must be on or after the first or next run")
 
     delegate = create_user(email: "delegate3@example.test", role: :nurse)
     post "/api/v1/tasks",
@@ -457,6 +487,34 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(task.completion_date).to eq(Date.new(2026, 5, 22))
     expect(JSON.parse(response.body).dig("data", "attributes", "recurrence_rule", "attributes", "date_end")).to eq("2026-05-22")
     expect(task.task_occurrences.pluck(:status, :scheduled_at)).to eq([ [ "planned", Time.zone.parse("2026-05-15 10:00") ] ])
+  end
+
+  it "allows one-day recurring series when completion_date matches the first scheduled run" do
+    creator = create_user(email: "creator-recurring-one-day@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "One-day recurring visit",
+             task_kind: "recurring",
+             assign_to_self: true,
+             completion_date: "2026-05-15",
+             recurrence_rule_attributes: {
+               rule_type: "every_n_days",
+               interval_value: 1,
+               execution_time: "12:00",
+               timezone: "Europe/Moscow",
+               date_start: "2026-05-15"
+             }
+           }
+         },
+         headers: auth_headers_for(creator)
+
+    expect(response).to have_http_status(:created)
+    task = Task.find(JSON.parse(response.body).dig("data", "id"))
+    expect(task.completion_date).to eq(Date.new(2026, 5, 15))
+    expect(task.recurrence_rule.date_end).to eq(Date.new(2026, 5, 15))
+    expect(task.task_occurrences.pluck(:status, :scheduled_at)).to eq([ [ "planned", Time.zone.parse("2026-05-15 12:00") ] ])
   end
 
   it "mirrors completion_date into recurrence_rule.date_end for recurring task creation" do
@@ -701,6 +759,34 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     names = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "name") }
     expect(names).to include("Planned task")
     expect(names).not_to include("Executed task")
+  end
+
+  it "does not synthesize planned occurrences for inactive recurring tasks without a date range" do
+    user = create_user(email: "doctor-occurrence-inactive-no-range@example.test", role: :doctor)
+    task = create_task(
+      name: "Completed recurring task",
+      creator: user,
+      responsible: user,
+      status: :ongoing,
+      task_kind: :recurring,
+      next_run_at: Time.zone.parse("2026-05-20 09:30")
+    )
+    task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "09:30",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 20)
+    )
+    task.update_columns(status: "completed", end_reason: "series_completed", completed_at: Time.current)
+
+    get "/api/v1/tasks",
+        params: { occurrence_status: "planned" },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    names = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "name") }
+    expect(names).not_to include("Completed recurring task")
   end
 
   it "projects recurring occurrences in date-filtered task lists and filters by occurrence status" do
