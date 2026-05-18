@@ -78,6 +78,7 @@ class Task < ApplicationRecord
   validate :ownership_context_required
   validate :end_reason_required_for_final_tasks
   validate :one_time_tasks_must_not_have_recurrence_rule
+  before_validation :normalize_one_time_schedule_from_completion_date
   before_validation :normalize_recurring_end_date
   validate :completion_date_must_follow_initial_schedule
   before_update :prevent_mutation_when_final
@@ -111,6 +112,24 @@ class Task < ApplicationRecord
   end
 
   private
+
+    def normalize_one_time_schedule_from_completion_date
+      return unless one_time?
+      return if completion_date.blank?
+      return if first_run_at.present? || next_run_at.present?
+
+      normalized_time = Time.zone.local(
+        completion_date.year,
+        completion_date.month,
+        completion_date.day,
+        12,
+        0,
+        0
+      )
+
+      self.first_run_at = normalized_time
+      self.next_run_at = normalized_time
+    end
 
     def end_reason_required_for_final_tasks
       return unless final? && end_reason.blank?

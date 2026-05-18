@@ -223,6 +223,20 @@ RSpec.describe Task, type: :model do
     expect(task.errors[:recurrence_rule]).to include("must be absent for one-time tasks")
   end
 
+  it "normalizes one-time completion_date into noon run fields when both are blank" do
+    task = described_class.new(
+      task_kind: :one_time,
+      status: :ongoing,
+      name: "Due-date only task",
+      responsible: build_user(email: "responsible-noon-normalization@example.test", role: :doctor),
+      completion_date: Date.new(2026, 5, 23)
+    )
+
+    expect(task).to be_valid
+    expect(task.first_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+  end
+
   it "allows a recurring completion date that matches the first scheduled run" do
     responsible = build_user(email: "responsible-recurring@example.test", role: :doctor)
     task = described_class.new(

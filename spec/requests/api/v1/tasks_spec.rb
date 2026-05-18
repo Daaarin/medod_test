@@ -103,6 +103,46 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(task.next_run_at).to eq(Time.zone.parse("2026-05-16 09:30"))
   end
 
+  it "copies completion_date into one-time run fields at noon when both are blank" do
+    user = create_user(email: "doctor-one-time-due-date-normalization@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "Due-date only visit",
+             assign_to_self: true,
+             completion_date: "2026-05-23"
+           }
+         },
+         headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:created)
+    task = Task.find(JSON.parse(response.body).dig("data", "id"))
+    expect(task.first_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+    expect(task.task_occurrences.pluck(:status, :scheduled_at)).to eq([ [ "planned", Time.zone.parse("2026-05-23 12:00") ] ])
+  end
+
+  it "does not overwrite explicit one-time run fields from completion_date" do
+    user = create_user(email: "doctor-one-time-explicit-run@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "Explicit schedule visit",
+             assign_to_self: true,
+             completion_date: "2026-05-23",
+             first_run_at: "2026-05-23T09:30:00+03:00"
+           }
+         },
+         headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:created)
+    task = Task.find(JSON.parse(response.body).dig("data", "id"))
+    expect(task.first_run_at).to eq(Time.zone.parse("2026-05-23 09:30"))
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-23 09:30"))
+  end
+
   it "includes unscheduled one-time tasks in date-filtered listings" do
     user = create_user(email: "doctor-unscheduled-task@example.test", role: :doctor)
     task = create_task(name: "Unscheduled task", creator: user, responsible: user, status: :draft)
@@ -190,6 +230,32 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     expect(task.name).to eq("Legacy recurring updated")
     expect(task.description).to eq("Updated description")
     expect(task.recurrence_rule).to be_nil
+  end
+
+  it "fills one-time run fields from completion_date on update when both are blank" do
+    creator = create_user(email: "creator-one-time-update-due-date@example.test", role: :doctor)
+    task = create_task(
+      name: "Due-date only task",
+      creator: creator,
+      responsible: creator,
+      status: :ongoing,
+      completion_date: Date.new(2026, 5, 23)
+    )
+    task.update_columns(first_run_at: nil, next_run_at: nil)
+
+    patch "/api/v1/tasks/#{task.id}",
+          params: {
+            task: {
+              description: "Updated description"
+            }
+          },
+          headers: auth_headers_for(creator)
+
+    expect(response).to have_http_status(:ok)
+    task.reload
+    expect(task.description).to eq("Updated description")
+    expect(task.first_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
   end
 
   it "enforces bonded visibility for staff and broader access for administrators" do
@@ -759,6 +825,36 @@ RSpec.describe "Api::V1::Tasks", type: :request do
     names = JSON.parse(response.body).fetch("data").map { |item| item.dig("attributes", "name") }
     expect(names).to include("Planned task")
     expect(names).not_to include("Executed task")
+  end
+
+  it "includes due-date-normalized one-time tasks in planned calendar listings" do
+    user = create_user(email: "doctor-one-time-calendar-due-date@example.test", role: :doctor)
+
+    post "/api/v1/tasks",
+         params: {
+           task: {
+             name: "Calendar due-date task",
+             assign_to_self: true,
+             completion_date: "2026-05-23"
+           }
+         },
+         headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:created)
+
+    get "/api/v1/tasks",
+        params: {
+          from: "2026-05-23",
+          to: "2026-05-23",
+          occurrence_status: "planned"
+        },
+        headers: auth_headers_for(user)
+
+    expect(response).to have_http_status(:ok)
+    item = JSON.parse(response.body).fetch("data").find { |entry| entry.dig("attributes", "name") == "Calendar due-date task" }
+    expect(item).to be_present
+    expect(item.dig("attributes", "occurrence", "scheduled_at")).to eq(Time.zone.parse("2026-05-23 12:00").iso8601)
+    expect(item.dig("attributes", "occurrence", "projected")).to eq(false)
   end
 
   it "does not synthesize planned occurrences for inactive recurring tasks without a date range" do
