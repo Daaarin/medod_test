@@ -113,6 +113,18 @@ function readError(error) {
   return "Не удалось загрузить календарь";
 }
 
+function mergeCalendarTasks(plannedTasks, postponedTasks) {
+  const seen = new Set();
+
+  return [ ...(plannedTasks || []), ...(postponedTasks || []) ].filter((task) => {
+    const key = String(task?.id ?? "");
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
 export function CalendarPage({ api, initialDate = new Date() }) {
   const [visibleMonth, setVisibleMonth] = useState(() => initialDate);
   const [selectedDate, setSelectedDate] = useState(() => dateKey(initialDate));
@@ -121,7 +133,16 @@ export function CalendarPage({ api, initialDate = new Date() }) {
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", "calendar", range],
-    queryFn: () => api.tasks({ ...range, occurrence_status: "planned" }),
+    queryFn: async () => {
+      const [ plannedPayload, postponedPayload ] = await Promise.all([
+        api.tasks({ ...range, occurrence_status: "planned" }),
+        api.tasks({ ...range, occurrence_status: "postponed" }),
+      ]);
+
+      return {
+        data: mergeCalendarTasks(plannedPayload?.data, postponedPayload?.data),
+      };
+    },
   });
 
   const tasks = tasksQuery.data?.data || [];

@@ -133,6 +133,8 @@ Delegated-only pending users stay read-only until they accept the task.
 ## Swagger
 
 Swagger/OpenAPI JSON is generated at `swagger/v1/swagger.json`.
+The local pre-commit hook regenerates it automatically when API or Swagger
+sources change and restages the result before the commit completes.
 
 The Rails command form for `rswag:specs:swaggerize` is not exposed in this
 setup. Generate the file with:

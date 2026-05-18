@@ -7,6 +7,8 @@
   - files changed or next steps
 - Keep entries brief and practical. Do not store secrets, credentials, or full verbatim transcripts unless the user explicitly asks for that.
 - Update `HISTORY.md` as part of completing the work, or sooner if a milestone decision needs to be preserved.
+- When changing API behavior, routes, request parameters, or response payloads, update `spec/requests/api/v1/swagger_spec.rb` in the same task and regenerate `swagger/v1/swagger.json` before finishing.
+- Treat Swagger drift as a release bug: do not leave API changes without matching Swagger updates unless the user explicitly asks to defer them.
 
 ## graphify
 

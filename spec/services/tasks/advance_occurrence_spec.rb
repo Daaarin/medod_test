@@ -36,6 +36,31 @@ RSpec.describe Tasks::AdvanceOccurrence do
     expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "executed" ])
   end
 
+  it "rejects executing a planned occurrence before its scheduled time" do
+    responsible = build_user(email: "responsible-future@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible
+    )
+    occurrence = task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-11 10:00"),
+      status: :planned
+    )
+
+    travel_to(Time.zone.parse("2026-05-11 09:59")) do
+      expect do
+        described_class.call(occurrence: occurrence, actor_id: responsible.id)
+      end.to raise_error(ArgumentError, "occurrence cannot be executed before its actionable time")
+    end
+
+    expect(occurrence.reload.status).to eq("planned")
+    expect(occurrence.actual_at).to be_nil
+    expect(task.reload.task_occurrences.where(status: :planned).pluck(:scheduled_at)).to eq([ Time.zone.parse("2026-05-11 10:00") ])
+    expect(task.task_events).to be_empty
+  end
+
   it "completes a recurring lineage when there is no next scheduled run" do
     responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.create!(
@@ -131,6 +156,45 @@ RSpec.describe Tasks::AdvanceOccurrence do
     expect(task.next_run_at).to eq(Time.zone.parse("2026-05-13 10:00"))
     expect(task.task_occurrences.where(status: :planned).pluck(:scheduled_at)).to eq([ Time.zone.parse("2026-05-13 10:00") ])
     expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "postponed", "executed" ])
+  end
+
+  it "rejects executing a postponed occurrence before its postponed time" do
+    responsible = build_user(email: "responsible-postponed@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible
+    )
+    task.create_recurrence_rule!(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+    occurrence = task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-11 10:00"),
+      status: :planned
+    )
+
+    Tasks::PostponeOccurrence.call(
+      occurrence: occurrence,
+      postpone_to: Time.zone.parse("2026-05-12 14:00"),
+      actor_id: responsible.id
+    )
+
+    travel_to(Time.zone.parse("2026-05-12 13:59")) do
+      expect do
+        described_class.call(occurrence: occurrence, actor_id: responsible.id)
+      end.to raise_error(ArgumentError, "occurrence cannot be executed before its actionable time")
+    end
+
+    expect(occurrence.reload.status).to eq("postponed")
+    expect(occurrence.actual_at).to be_nil
+    expect(task.reload.next_run_at).to eq(Time.zone.parse("2026-05-12 14:00"))
+    expect(task.task_occurrences.where(status: :planned)).to be_empty
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "postponed" ])
   end
 
   it "rejects non-planned occurrences before mutating" do

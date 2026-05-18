@@ -16,6 +16,7 @@ module Tasks
         task.with_lock do
           occurrence.lock!
           raise ArgumentError, "occurrence must be planned or postponed on an active task" unless occurrence.current? && task.active?
+          raise ArgumentError, "occurrence cannot be executed before its actionable time" if execute_too_early?
 
           executed_at = Time.current
           occurrence.update!(
@@ -69,6 +70,13 @@ module Tasks
       def next_occurrence_after(executed_at)
         cursor = [ executed_at, occurrence.scheduled_at ].compact.max + 1.second
         TaskScheduling::NextOccurrenceCalculator.call(task: task, from_time: cursor)
+      end
+
+      def execute_too_early?
+        actionable_time = occurrence.actionable_time
+        return false if actionable_time.blank?
+
+        Time.current < actionable_time
       end
 
       def complete_lineage(occurrence:, executed_at:)

@@ -134,7 +134,6 @@ module Api
 
           from_date ||= to_date
           to_date ||= from_date
-          validate_date_range!(from_date, to_date)
 
           [ from_date.beginning_of_day, to_date.end_of_day ]
         end
@@ -481,12 +480,6 @@ module Api
 
         def render_bad_request(error)
           render json: { error: error.message }, status: :bad_request
-        end
-
-        def validate_date_range!(from_date, to_date)
-          return if (to_date - from_date).to_i + 1 <= MAX_DATE_RANGE_DAYS
-
-          raise ActionController::BadRequest, "date range cannot exceed #{MAX_DATE_RANGE_DAYS} days"
         end
 
         def task_payload(task, occurrence: nil, occurrence_time: nil, projected_occurrence_time: nil)

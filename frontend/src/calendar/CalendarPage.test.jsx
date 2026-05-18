@@ -20,52 +20,67 @@ function renderCalendar(api) {
 describe("CalendarPage", () => {
   it("loads the visible month and shows previews with overflow markers", async () => {
     const api = {
-      tasks: vi.fn().mockResolvedValue({
-        data: [
-          {
-            id: "7:42",
-            attributes: {
-              name: "Утренний обход",
-              occurrence: {
-                id: 42,
-                status: "planned",
-                scheduled_at: "2026-05-17T09:30:00.000+03:00",
-              },
-            },
-          },
-          {
-            id: "8:43",
-            attributes: {
-              name: "Поздний обход",
-              occurrence: {
-                id: 43,
-                status: "planned",
-                scheduled_at: "2026-05-17T10:30:00.000+03:00",
-              },
-            },
-          },
-          {
-            id: "9:44",
-            attributes: {
-              name: "Ночная проверка",
-              occurrence: {
-                id: 44,
-                status: "planned",
-                scheduled_at: "2026-05-17T11:30:00.000+03:00",
-              },
-            },
-          },
-        ],
-      }),
+      tasks: vi.fn().mockImplementation(({ occurrence_status }) =>
+        Promise.resolve({
+          data:
+            occurrence_status === "planned"
+              ? [
+                  {
+                    id: "7:42",
+                    attributes: {
+                      name: "Утренний обход",
+                      occurrence: {
+                        id: 42,
+                        status: "planned",
+                        scheduled_at: "2026-05-17T09:30:00.000+03:00",
+                      },
+                    },
+                  },
+                  {
+                    id: "8:43",
+                    attributes: {
+                      name: "Поздний обход",
+                      occurrence: {
+                        id: 43,
+                        status: "planned",
+                        scheduled_at: "2026-05-17T10:30:00.000+03:00",
+                      },
+                    },
+                  },
+                ]
+              : [
+                  {
+                    id: "9:44",
+                    attributes: {
+                      name: "Ночная проверка",
+                      occurrence: {
+                        id: 44,
+                        status: "postponed",
+                        scheduled_at: "2026-05-16T11:30:00.000+03:00",
+                        postponed_to: "2026-05-17T11:30:00.000+03:00",
+                        occurs_at: "2026-05-17T11:30:00.000+03:00",
+                      },
+                    },
+                  },
+                ],
+        }),
+      ),
     };
 
     renderCalendar(api);
 
     await waitFor(() =>
-      expect(api.tasks).toHaveBeenCalledWith({
+      expect(api.tasks).toHaveBeenNthCalledWith(1, {
         from: "2026-05-01",
         to: "2026-05-31",
         occurrence_status: "planned",
+      }),
+    );
+    await waitFor(() =>
+      expect(api.tasks).toHaveBeenNthCalledWith(2, {
+        from: "2026-05-01",
+        to: "2026-05-31",
+        occurrence_status: "postponed",
       }),
     );
 
@@ -79,32 +94,38 @@ describe("CalendarPage", () => {
     expect(agendaItems[0]).toHaveTextContent("09:30 (UTC +3)");
     expect(agendaItems[1]).toHaveTextContent("10:30 (UTC +3)");
     expect(agendaItems[2]).toHaveTextContent("11:30 (UTC +3)");
+    expect(agendaItems[2]).toHaveTextContent("Перенесено");
   });
 
   it("shows recurrence end dates in the day agenda", async () => {
     const api = {
-      tasks: vi.fn().mockResolvedValue({
-        data: [
-          {
-            id: "10:50",
-            attributes: {
-              name: "Курс процедур",
-              recurrence_rule: {
-                id: "50",
-                type: "recurrence_rule",
-                attributes: {
-                  date_end: "2026-05-22",
-                },
-              },
-              occurrence: {
-                id: 50,
-                status: "planned",
-                scheduled_at: "2026-05-17T09:30:00.000+03:00",
-              },
-            },
-          },
-        ],
-      }),
+      tasks: vi.fn().mockImplementation(({ occurrence_status }) =>
+        Promise.resolve({
+          data:
+            occurrence_status === "planned"
+              ? [
+                  {
+                    id: "10:50",
+                    attributes: {
+                      name: "Курс процедур",
+                      recurrence_rule: {
+                        id: "50",
+                        type: "recurrence_rule",
+                        attributes: {
+                          date_end: "2026-05-22",
+                        },
+                      },
+                      occurrence: {
+                        id: 50,
+                        status: "planned",
+                        scheduled_at: "2026-05-17T09:30:00.000+03:00",
+                      },
+                    },
+                  },
+                ]
+              : [],
+        }),
+      ),
     };
 
     renderCalendar(api);
@@ -125,7 +146,7 @@ describe("CalendarPage", () => {
       expect(api.tasks).toHaveBeenLastCalledWith({
         from: "2026-06-01",
         to: "2026-06-30",
-        occurrence_status: "planned",
+        occurrence_status: "postponed",
       }),
     );
   });

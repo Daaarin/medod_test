@@ -1,6 +1,8 @@
 require "swagger_helper"
 
 RSpec.describe "API V1 Swagger", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   before do
     host! "localhost"
   end
@@ -313,6 +315,92 @@ RSpec.describe "API V1 Swagger", type: :request do
         let(:id) { occurrence.id }
         let(:Authorization) { "Bearer #{token_for(user)}" }
         let(:postpone_request) { { postponed_to: "2026-05-15T12:00:00+03:00" } }
+
+        run_test!
+      end
+    end
+  end
+
+  path "/api/v1/task_occurrences/{id}/execute" do
+    post "Execute one task occurrence" do
+      tags "Occurrences"
+      produces "application/json"
+      security [ bearerAuth: [] ]
+      parameter name: :Authorization, in: :header, type: :string
+      parameter name: :id, in: :path, type: :string
+
+      response "200", "occurrence executed" do
+        let(:user) { create_user(email: "swagger-execute@example.test") }
+        let(:task) do
+          Task.create!(
+            task_kind: :recurring,
+            status: :ongoing,
+            name: "Swagger execute",
+            responsible: user,
+            next_run_at: Time.zone.parse("2026-05-15 10:00")
+          ).tap do |created_task|
+            created_task.create_recurrence_rule!(
+              rule_type: :every_n_days,
+              interval_value: 1,
+              execution_time: "10:00",
+              timezone: "Europe/Moscow",
+              date_start: Date.new(2026, 5, 15)
+            )
+          end
+        end
+        let(:occurrence) { task.task_occurrences.create!(scheduled_at: Time.zone.parse("2026-05-15 10:00"), status: :planned) }
+        let(:id) { occurrence.id }
+        let(:Authorization) { "Bearer #{token_for(user)}" }
+
+        around do |example|
+          travel_to(Time.zone.parse("2026-05-15 10:01")) do
+            example.run
+          end
+        end
+
+        run_test!
+      end
+    end
+  end
+
+  path "/api/v1/task_occurrences/{id}/skip" do
+    post "Skip one task occurrence" do
+      tags "Occurrences"
+      consumes "application/json"
+      produces "application/json"
+      security [ bearerAuth: [] ]
+      parameter name: :Authorization, in: :header, type: :string
+      parameter name: :id, in: :path, type: :string
+      parameter name: :skip_request, in: :body, schema: {
+        type: :object,
+        properties: {
+          skip_reason: { type: :string }
+        }
+      }
+
+      response "200", "occurrence skipped" do
+        let(:user) { create_user(email: "swagger-skip@example.test") }
+        let(:task) do
+          Task.create!(
+            task_kind: :recurring,
+            status: :ongoing,
+            name: "Swagger skip",
+            responsible: user,
+            next_run_at: Time.zone.parse("2026-05-15 10:00")
+          ).tap do |created_task|
+            created_task.create_recurrence_rule!(
+              rule_type: :every_n_days,
+              interval_value: 1,
+              execution_time: "10:00",
+              timezone: "Europe/Moscow",
+              date_start: Date.new(2026, 5, 15)
+            )
+          end
+        end
+        let(:occurrence) { task.task_occurrences.create!(scheduled_at: Time.zone.parse("2026-05-15 10:00"), status: :planned) }
+        let(:id) { occurrence.id }
+        let(:Authorization) { "Bearer #{token_for(user)}" }
+        let(:skip_request) { { skip_reason: "patient unavailable" } }
 
         run_test!
       end

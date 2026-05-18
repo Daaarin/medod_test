@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { formatDate, formatDateTime, formatUserLabel } from "../utils/display";
 import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
 
@@ -105,10 +106,15 @@ function recurrenceRule(attributes) {
   return attributes?.recurrence_rule || null;
 }
 
+function occurrenceActionableAt(occurrence) {
+  return occurrence?.postponed_to || occurrence?.scheduled_at || null;
+}
+
 export function TaskDetail({ api }) {
   const { taskId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const auth = useAuth();
   const queryClient = useQueryClient();
   const [occurrence, setOccurrence] = useState(() => location.state?.occurrence || null);
   const [editValues, setEditValues] = useState(() => emptyEditState());
@@ -134,11 +140,25 @@ export function TaskDetail({ api }) {
   const attachedTags = taskTags(attributes);
   const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
   const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
+  const canManageOccurrence =
+    auth.isAdmin || auth.user?.id === attributes.creator_id || auth.user?.id === attributes.responsible_id;
+  const actionableAt = occurrenceActionableAt(occurrence);
+  const canExecuteOccurrence = (() => {
+    if (!actionableAt) return false;
+    const parsed = new Date(actionableAt);
+    if (Number.isNaN(parsed.getTime())) return false;
+
+    return parsed.getTime() <= Date.now();
+  })();
 
   useEffect(() => {
     if (task?.attributes) {
       setEditValues(emptyEditState(attributes));
-      setPostponedTo(toDateTimeInput((taskOccurrence || occurrence)?.scheduled_at || (taskOccurrence || occurrence)?.occurs_at || ""));
+      setPostponedTo(
+        toDateTimeInput(
+          occurrenceActionableAt(taskOccurrence || occurrence) || (taskOccurrence || occurrence)?.occurs_at || "",
+        ),
+      );
       setSkipReason("");
     }
   }, [attributes, occurrence, task, taskOccurrence]);
@@ -229,7 +249,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Выполнение перенесено.");
+      setFeedback("Отложено.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -244,7 +264,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Выполнение отмечено.");
+      setFeedback("Отмечено как выполненное.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -290,7 +310,10 @@ export function TaskDetail({ api }) {
   });
 
   const canShowOccurrenceActions =
-    Boolean(occurrence?.id) && !occurrence?.projected && ["planned", "postponed"].includes(occurrence?.status);
+    canManageOccurrence &&
+    Boolean(occurrence?.id) &&
+    !occurrence?.projected &&
+    ["planned", "postponed"].includes(occurrence?.status);
 
   const summaryItems = useMemo(() => {
     const items = [
@@ -504,7 +527,7 @@ export function TaskDetail({ api }) {
               {canShowOccurrenceActions ? (
                 <div className="detail-actions-stack">
                   <label>
-                    Перенести на
+                    Отложить до
                     <input
                       type="datetime-local"
                       value={postponedTo}
@@ -517,10 +540,14 @@ export function TaskDetail({ api }) {
                       onClick={() => postponeMutation.mutate()}
                       disabled={postponeMutation.isPending || !postponedTo}
                     >
-                      Перенести
+                      Отложить
                     </button>
-                    <button type="button" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending}>
-                      Выполнить
+                    <button
+                      type="button"
+                      onClick={() => executeMutation.mutate()}
+                      disabled={executeMutation.isPending || !canExecuteOccurrence}
+                    >
+                      Выполнено
                     </button>
                     <label>
                       Причина пропуска
