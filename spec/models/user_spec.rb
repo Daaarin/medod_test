@@ -1,3 +1,24 @@
+# == Schema Information
+#
+# Table name: users
+#
+#  id                :bigint           not null, primary key
+#  auth_token_digest :string
+#  email             :string           not null
+#  last_name         :string           not null
+#  name              :string           not null
+#  password_digest   :string           not null
+#  password_salt     :string           not null
+#  role              :string           not null
+#  created_at        :datetime         not null
+#  updated_at        :datetime         not null
+#
+# Indexes
+#
+#  index_users_on_auth_token_digest   (auth_token_digest) UNIQUE
+#  index_users_on_email               (email) UNIQUE
+#  index_users_on_name_and_last_name  (name,last_name)
+#
 require "rails_helper"
 
 RSpec.describe User, type: :model do

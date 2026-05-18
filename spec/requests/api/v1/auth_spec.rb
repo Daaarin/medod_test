@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Auth", type: :request do
+  before do
+    host! "localhost"
+  end
+
   it "throttles repeated failed login attempts from the same IP and normalized email" do
     User.create!(
       email: "doctor@example.test",
@@ -53,6 +57,82 @@ RSpec.describe "Api::V1::Auth", type: :request do
       "name" => "Ivan",
       "last_name" => "Petrov"
     )
+  end
+
+  it "registers a new non-admin user and returns a bearer token with user data" do
+    post "/api/v1/auth/register",
+         params: {
+           email: "register@example.test",
+           password: "password123",
+           role: "doctor",
+           name: "Anna",
+           last_name: "Sidorova"
+         },
+         as: :json
+
+    expect(response).to have_http_status(:created)
+    body = JSON.parse(response.body)
+    expect(body["token"]).to be_present
+    expect(body["user"]).to include(
+      "email" => "register@example.test",
+      "role" => "doctor",
+      "name" => "Anna",
+      "last_name" => "Sidorova"
+    )
+  end
+
+  it "rejects duplicate emails during registration" do
+    User.create!(
+      email: "register@example.test",
+      password: "password123",
+      role: :doctor,
+      name: "Anna",
+      last_name: "Sidorova"
+    )
+
+    post "/api/v1/auth/register",
+         params: {
+           email: "register@example.test",
+           password: "password123",
+           role: "doctor",
+           name: "Anna",
+           last_name: "Sidorova"
+         },
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(JSON.parse(response.body)["errors"]).to include("Email has already been taken")
+  end
+
+  it "rejects missing required registration fields" do
+    post "/api/v1/auth/register",
+         params: {
+           email: "missing@example.test",
+           password: "password123",
+           role: "doctor"
+         },
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(JSON.parse(response.body)["errors"]).to include(
+      "Name can't be blank",
+      "Last name can't be blank"
+    )
+  end
+
+  it "rejects admin registration attempts" do
+    post "/api/v1/auth/register",
+         params: {
+           email: "admin-register@example.test",
+           password: "password123",
+           role: "administrator",
+           name: "Admin",
+           last_name: "User"
+         },
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(JSON.parse(response.body)["errors"]).to include("Role is not allowed")
   end
 
   it "rejects invalid login credentials" do

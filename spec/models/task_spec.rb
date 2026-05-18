@@ -1,3 +1,48 @@
+# == Schema Information
+#
+# Table name: tasks
+#
+#  id                  :bigint           not null, primary key
+#  accepted_at         :datetime
+#  cancellation_reason :string
+#  cancelled_at        :datetime
+#  completed_at        :datetime
+#  completion_date     :date
+#  deactivated_at      :datetime
+#  description         :text
+#  end_reason          :string
+#  first_run_at        :datetime
+#  name                :string           not null
+#  next_run_at         :datetime
+#  status              :string           not null
+#  task_kind           :string           not null
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  creator_id          :bigint
+#  delegated_user_id   :bigint
+#  parent_task_id      :bigint
+#  responsible_id      :bigint
+#  root_task_id        :bigint
+#
+# Indexes
+#
+#  index_tasks_on_creator_id         (creator_id)
+#  index_tasks_on_delegated_user_id  (delegated_user_id)
+#  index_tasks_on_next_run_at        (next_run_at)
+#  index_tasks_on_parent_task_id     (parent_task_id)
+#  index_tasks_on_responsible_id     (responsible_id)
+#  index_tasks_on_root_task_id       (root_task_id)
+#  index_tasks_on_status             (status)
+#  index_tasks_on_task_kind          (task_kind)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (creator_id => users.id)
+#  fk_rails_...  (delegated_user_id => users.id)
+#  fk_rails_...  (parent_task_id => tasks.id)
+#  fk_rails_...  (responsible_id => users.id)
+#  fk_rails_...  (root_task_id => tasks.id)
+#
 require "rails_helper"
 
 RSpec.describe Task, type: :model do
@@ -176,6 +221,42 @@ RSpec.describe Task, type: :model do
 
     expect(task).not_to be_valid
     expect(task.errors[:recurrence_rule]).to include("must be absent for one-time tasks")
+  end
+
+  it "normalizes one-time completion_date into noon run fields when both are blank" do
+    task = described_class.new(
+      task_kind: :one_time,
+      status: :ongoing,
+      name: "Due-date only task",
+      responsible: build_user(email: "responsible-noon-normalization@example.test", role: :doctor),
+      completion_date: Date.new(2026, 5, 23)
+    )
+
+    expect(task).to be_valid
+    expect(task.first_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+    expect(task.next_run_at).to eq(Time.zone.parse("2026-05-23 12:00"))
+  end
+
+  it "allows a recurring completion date that matches the first scheduled run" do
+    responsible = build_user(email: "responsible-recurring@example.test", role: :doctor)
+    task = described_class.new(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Recurring visit",
+      responsible: responsible,
+      first_run_at: Time.zone.parse("2026-05-15 12:00"),
+      next_run_at: Time.zone.parse("2026-05-15 12:00"),
+      completion_date: Date.new(2026, 5, 15)
+    )
+    task.build_recurrence_rule(
+      rule_type: :every_n_days,
+      interval_value: 1,
+      execution_time: "12:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 15)
+    )
+
+    expect(task).to be_valid
   end
 
   def build_user(email:, role:)

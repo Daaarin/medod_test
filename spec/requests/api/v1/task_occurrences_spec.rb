@@ -135,9 +135,36 @@ RSpec.describe "Api::V1::TaskOccurrences", type: :request do
          headers: auth_headers_for(user)
 
     expect(response).to have_http_status(:unprocessable_content)
-    expect(JSON.parse(response.body).fetch("errors")).to include("postpone_to must be on or after the scheduled occurrence")
+    expect(JSON.parse(response.body).fetch("errors")).to include("postpone_to must be on or after the current occurrence time")
     expect(occurrence.reload.status).to eq("planned")
     expect(task.reload.next_run_at).to eq(Time.zone.parse("2026-05-15 10:00"))
+  end
+
+  it "allows administrators to execute and postpone visible occurrences" do
+    responsible = create_user(email: "responsible-admin-visible@example.test", role: :doctor)
+    admin = create_user(email: "admin-visible@example.test", role: :administrator)
+    task = create_recurring_task(
+      name: "Admin visible call",
+      responsible: responsible,
+      scheduled_at: Time.zone.parse("2026-05-15 10:00")
+    )
+    occurrence = task.task_occurrences.first
+
+    travel_to(Time.zone.parse("2026-05-15 10:01")) do
+      post "/api/v1/task_occurrences/#{occurrence.id}/execute", headers: auth_headers_for(admin)
+    end
+
+    expect(response).to have_http_status(:ok)
+    expect(occurrence.reload.status).to eq("executed")
+
+    next_occurrence = task.reload.task_occurrences.find_by!(status: :planned)
+    post "/api/v1/task_occurrences/#{next_occurrence.id}/postpone",
+         params: { postponed_to: "2026-05-16T12:00:00+03:00" },
+         headers: auth_headers_for(admin)
+
+    expect(response).to have_http_status(:ok)
+    expect(next_occurrence.reload.status).to eq("postponed")
+    expect(next_occurrence.postponed_to).to eq(Time.zone.parse("2026-05-16 12:00:00+03:00"))
   end
 
   it "rejects non-current occurrences and non-active tasks with domain errors" do
@@ -178,6 +205,25 @@ RSpec.describe "Api::V1::TaskOccurrences", type: :request do
     expect(response).to have_http_status(:unprocessable_content)
     expect(JSON.parse(response.body).fetch("errors")).to include("occurrence must be planned or postponed on an active task")
     expect(cancelled_occurrence.reload.status).to eq("planned")
+  end
+
+  it "rejects executing an occurrence before its actionable time" do
+    user = create_user(email: "doctor-too-early@example.test", role: :doctor)
+    task = create_recurring_task(
+      name: "Daily call",
+      responsible: user,
+      scheduled_at: Time.zone.parse("2026-05-15 10:00")
+    )
+    occurrence = task.task_occurrences.first
+
+    travel_to(Time.zone.parse("2026-05-15 09:59")) do
+      post "/api/v1/task_occurrences/#{occurrence.id}/execute", headers: auth_headers_for(user)
+    end
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(JSON.parse(response.body).fetch("errors")).to include("occurrence cannot be executed before its actionable time")
+    expect(occurrence.reload.status).to eq("planned")
+    expect(occurrence.actual_at).to be_nil
   end
 
   it "executes a current occurrence, advances the task, and leaves siblings untouched" do

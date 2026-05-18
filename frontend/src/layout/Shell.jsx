@@ -1,21 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { formatUserLabel } from "../utils/display";
 
 const baseLinks = [
   { to: "/tasks", label: "Задачи" },
-  { to: "/delegated", label: "Делегированные" },
   { to: "/calendar", label: "Календарь" },
   { to: "/tags", label: "Теги" },
 ];
-
-function buildDisplayName(user) {
-  const parts = [user?.name, user?.last_name].filter(Boolean);
-  if (parts.length) {
-    return parts.join(" ");
-  }
-
-  return user?.email || "Вы вошли";
-}
 
 function formatRole(role) {
   if (!role) return "Роль не указана";
@@ -25,16 +16,29 @@ function formatRole(role) {
 export function Shell() {
   const auth = useAuth();
   const links = auth.isAdmin ? [...baseLinks, { to: "/admin", label: "Администрирование" }] : baseLinks;
-  const displayName = buildDisplayName(auth.user);
+  const formattedName = auth.user ? formatUserLabel(auth.user) : "";
+  const displayName = formattedName && formattedName !== "—" ? formattedName : auth.user?.email || "Вы вошли";
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <p className="eyebrow">Medods Tasks</p>
-          <h1>Задачи</h1>
-          <p className="sidebar-copy">{displayName}</p>
-          <p className="role-label">{formatRole(auth.user?.role)}</p>
+          <div className="sidebar-brand">
+            <span className="sidebar-brand-mark" aria-hidden="true">
+              M
+            </span>
+            <div>
+              <p className="eyebrow">Medods Tasks</p>
+              <h1>Задачи</h1>
+            </div>
+          </div>
+          <div className="sidebar-card">
+            <div className="sidebar-profile">
+              <strong>{displayName}</strong>
+              <p className="sidebar-copy">{formatRole(auth.user?.role)}</p>
+            </div>
+            <p className="sidebar-copy">Оперативное управление задачами, календарем и каталогом тегов.</p>
+          </div>
         </div>
 
         <nav className="tabs" aria-label="Основная навигация">
@@ -45,9 +49,11 @@ export function Shell() {
           ))}
         </nav>
 
-        <button type="button" className="secondary-button" onClick={auth.logout}>
-          Выйти
-        </button>
+        <div className="sidebar-footer">
+          <button type="button" className="sidebar-logout" onClick={auth.logout}>
+            Выйти
+          </button>
+        </div>
       </aside>
 
       <main className="content">

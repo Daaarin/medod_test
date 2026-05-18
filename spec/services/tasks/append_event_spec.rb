@@ -51,16 +51,16 @@ RSpec.describe Tasks::AppendEvent do
     )
 
     expect do
-      described_class.call(
-        task: task,
-        event_type: :created,
-        actor_id: responsible.id,
-        occurrence: occurrence,
-        payload: { name: "Check email" }
-      )
-    end.to raise_error(ActiveRecord::RecordInvalid, /must belong to the same task/)
-
-    expect(TaskEvent.count).to eq(0)
+      expect do
+        described_class.call(
+          task: task,
+          event_type: :created,
+          actor_id: responsible.id,
+          occurrence: occurrence,
+          payload: { name: "Check email" }
+        )
+      end.to raise_error(ActiveRecord::RecordInvalid, /must belong to the same task/)
+    end.not_to change(TaskEvent, :count)
   end
 
   def build_user(email:, role:)

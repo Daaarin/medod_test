@@ -10,13 +10,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
--- *not* creating schema, since initdb creates it
-
-
---
 -- Name: prevent_system_tag_mutation(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -597,7 +590,7 @@ CREATE INDEX index_task_occurrences_on_task_id_and_status ON public.task_occurre
 -- Name: index_task_occurrences_on_task_id_when_current; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_task_occurrences_on_task_id_when_current ON public.task_occurrences USING btree (task_id) WHERE ((status)::text = ANY (ARRAY[('planned'::character varying)::text, ('postponed'::character varying)::text]));
+CREATE UNIQUE INDEX index_task_occurrences_on_task_id_when_current ON public.task_occurrences USING btree (task_id) WHERE ((status)::text = ANY ((ARRAY['planned'::character varying, 'postponed'::character varying])::text[]));
 
 
 --
@@ -836,6 +829,7 @@ ALTER TABLE ONLY public.task_tags
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260518000001'),
 ('20260515000001'),
 ('20260514000007'),
 ('20260514000006'),

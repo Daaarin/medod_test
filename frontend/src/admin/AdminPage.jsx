@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiBase } from "../api/client";
 import { TagsPage } from "../tags/TagsPage";
 import { TaskListPage } from "../tasks/TaskList";
 
@@ -15,6 +16,7 @@ function readError(error) {
 }
 
 export function AdminPage({ api }) {
+  const swaggerUrl = new URL("/api-docs", apiBase).toString();
   const healthQuery = useQuery({
     queryKey: ["health"],
     queryFn: () => api.health(),
@@ -27,8 +29,9 @@ export function AdminPage({ api }) {
         <div>
           <p className="eyebrow">Администратор</p>
           <h2>Администрирование</h2>
+          <p className="header-copy">Контроль доступности API и быстрый переход к документации.</p>
         </div>
-        <a className="page-action" href="/api-docs" target="_blank" rel="noreferrer">
+        <a className="page-action" href={swaggerUrl} target="_blank" rel="noreferrer">
           Открыть Swagger
         </a>
       </header>
@@ -40,7 +43,7 @@ export function AdminPage({ api }) {
         {!healthQuery.isPending && !healthQuery.isError ? <div>Доступен</div> : null}
       </div>
 
-      <TaskListPage api={api} title="Все доступные задачи" showScope={false} hiddenFilters={["status"]} />
+      <TaskListPage api={api} title="Все доступные задачи" showScope={false} hiddenFilters={["status"]} defaultFromToday={false} />
       <TagsPage api={api} includeDeactivated />
     </section>
   );

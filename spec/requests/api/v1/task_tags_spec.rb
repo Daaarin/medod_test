@@ -32,10 +32,11 @@ RSpec.describe "Api::V1::TaskTags", type: :request do
     )
     tag = Tag.create!(name: "Operations")
 
-    post "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(creator)
+    expect do
+      post "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(creator)
+    end.to change { TaskTag.where(task: task, tag: tag).count }.from(0).to(1)
 
     expect(response).to have_http_status(:ok)
-    expect(TaskTag.count).to eq(1)
 
     task_tag = TaskTag.find_by!(task: task, tag: tag)
     task_tag_id = task_tag.id
@@ -44,13 +45,15 @@ RSpec.describe "Api::V1::TaskTags", type: :request do
     delete "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(creator)
 
     expect(response).to have_http_status(:no_content)
-    expect(TaskTag.count).to eq(1)
+    expect(TaskTag.where(task: task, tag: tag).count).to eq(1)
     expect(task_tag.reload.deactivated_at).to be_present
 
-    post "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(creator)
+    expect do
+      post "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(creator)
+    end.not_to change { TaskTag.where(task: task, tag: tag).count }
 
     expect(response).to have_http_status(:ok)
-    expect(TaskTag.count).to eq(1)
+    expect(TaskTag.where(task: task, tag: tag).count).to eq(1)
     expect(task_tag.reload.id).to eq(task_tag_id)
     expect(task_tag.deactivated_at).to be_nil
   end
@@ -110,15 +113,17 @@ RSpec.describe "Api::V1::TaskTags", type: :request do
     )
     tag = Tag.create!(name: "Call")
 
-    post "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(delegate)
+    expect do
+      post "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(delegate)
+    end.not_to change { TaskTag.where(task: task, tag: tag).count }
 
     expect(response).to have_http_status(:forbidden)
-    expect(TaskTag.count).to eq(0)
 
-    delete "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(delegate)
+    expect do
+      delete "/api/v1/tasks/#{task.id}/tags/#{tag.id}", headers: auth_headers_for(delegate)
+    end.not_to change { TaskTag.where(task: task, tag: tag).count }
 
     expect(response).to have_http_status(:forbidden)
-    expect(TaskTag.count).to eq(0)
   end
 
   def auth_headers_for(user)

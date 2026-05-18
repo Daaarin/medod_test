@@ -46,7 +46,7 @@ describe("Shell", () => {
     });
 
     expect(await screen.findByText("Tasks content")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("Nina Nurse")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Медсестра Nurse Nina")).toBeInTheDocument());
     expect(screen.queryByRole("link", { name: "Администрирование" })).not.toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe("Shell", () => {
     });
 
     expect(await screen.findByText("Tasks content")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("Ada Admin")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Администратор Admin Ada")).toBeInTheDocument());
     expect(await screen.findByRole("link", { name: "Администрирование" })).toBeInTheDocument();
   });
 });

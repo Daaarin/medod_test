@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { formatDate, formatDateTime, formatUserLabel } from "../utils/display";
 import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
 
 function readError(error) {
@@ -47,10 +49,11 @@ function mutationError(error) {
 }
 
 function emptyEditState(attributes) {
+  const recurrenceEndDate = attributes?.recurrence_rule?.attributes?.date_end;
   return {
     name: attributes?.name || "",
     description: attributes?.description || "",
-    completion_date: toDateInput(attributes?.completion_date),
+    completion_date: toDateInput(attributes?.completion_date || recurrenceEndDate),
   };
 }
 
@@ -87,10 +90,31 @@ function occurrenceFromPayload(payload) {
   return normalizeOccurrence(payload?.data?.occurrence ?? payload?.data?.attributes?.occurrence ?? null);
 }
 
+function summaryUser(user) {
+  return formatUserLabel(user);
+}
+
+function summaryDate(value) {
+  return value ? formatDate(value) : "—";
+}
+
+function summaryDateTime(value) {
+  return value ? formatDateTime(value) : "—";
+}
+
+function recurrenceRule(attributes) {
+  return attributes?.recurrence_rule || null;
+}
+
+function occurrenceActionableAt(occurrence) {
+  return occurrence?.postponed_to || occurrence?.scheduled_at || null;
+}
+
 export function TaskDetail({ api }) {
   const { taskId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const auth = useAuth();
   const queryClient = useQueryClient();
   const [occurrence, setOccurrence] = useState(() => location.state?.occurrence || null);
   const [editValues, setEditValues] = useState(() => emptyEditState());
@@ -111,14 +135,30 @@ export function TaskDetail({ api }) {
   const task = taskQuery.data?.data;
   const attributes = task?.attributes || {};
   const taskOccurrence = normalizeOccurrence(attributes.occurrence);
+  const taskRecurrenceRule = recurrenceRule(attributes);
+  const hasPersistedRecurrenceRule = Boolean(taskRecurrenceRule?.id);
   const attachedTags = taskTags(attributes);
   const attachedTagIds = new Set(attachedTags.map((tag) => tagId(tag)));
   const availableTags = (tagsQuery.data?.data || []).filter((tag) => !attachedTagIds.has(tagId(tag)));
+  const canManageOccurrence =
+    auth.isAdmin || auth.user?.id === attributes.creator_id || auth.user?.id === attributes.responsible_id;
+  const actionableAt = occurrenceActionableAt(occurrence);
+  const canExecuteOccurrence = (() => {
+    if (!actionableAt) return false;
+    const parsed = new Date(actionableAt);
+    if (Number.isNaN(parsed.getTime())) return false;
+
+    return parsed.getTime() <= Date.now();
+  })();
 
   useEffect(() => {
     if (task?.attributes) {
       setEditValues(emptyEditState(attributes));
-      setPostponedTo(toDateTimeInput((taskOccurrence || occurrence)?.scheduled_at || (taskOccurrence || occurrence)?.occurs_at || ""));
+      setPostponedTo(
+        toDateTimeInput(
+          occurrenceActionableAt(taskOccurrence || occurrence) || (taskOccurrence || occurrence)?.occurs_at || "",
+        ),
+      );
       setSkipReason("");
     }
   }, [attributes, occurrence, task, taskOccurrence]);
@@ -155,6 +195,9 @@ export function TaskDetail({ api }) {
         name: editValues.name,
         description: editValues.description,
         completion_date: editValues.completion_date ? editValues.completion_date : null,
+        ...(attributes.task_kind === "recurring" && hasPersistedRecurrenceRule
+          ? { recurrence_rule_attributes: { id: taskRecurrenceRule.id, date_end: editValues.completion_date || null } }
+          : {}),
       }),
     onSuccess: async () => {
       setFeedback("Задача сохранена.");
@@ -206,7 +249,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Выполнение перенесено.");
+      setFeedback("Отложено.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -221,7 +264,7 @@ export function TaskDetail({ api }) {
       if (nextOccurrence) {
         setOccurrence(nextOccurrence);
       }
-      setFeedback("Выполнение отмечено.");
+      setFeedback("Отмечено как выполненное.");
       await invalidateTaskData();
     },
     onError: (error) => {
@@ -267,25 +310,38 @@ export function TaskDetail({ api }) {
   });
 
   const canShowOccurrenceActions =
-    Boolean(occurrence?.id) && !occurrence?.projected && ["planned", "postponed"].includes(occurrence?.status);
+    canManageOccurrence &&
+    Boolean(occurrence?.id) &&
+    !occurrence?.projected &&
+    ["planned", "postponed"].includes(occurrence?.status);
 
-  const summaryItems = useMemo(
-    () => [
+  const summaryItems = useMemo(() => {
+    const items = [
       ["Статус", labelFrom(statusLabels, attributes.status, "—")],
       ["Тип", labelFrom(taskKindLabels, attributes.task_kind, "—")],
-      ["Автор", attributes.creator_id],
-      ["Ответственный", attributes.responsible_id],
-      ["Делегировано", attributes.delegated_user_id],
-      ["Дата завершения", attributes.completion_date],
-      ["Первый запуск", attributes.first_run_at],
-      ["Следующий запуск", attributes.next_run_at],
-      ["Принята", attributes.accepted_at],
-      ["Отменена", attributes.cancelled_at],
-      ["Причина завершения", attributes.end_reason],
-      ["Причина отмены", attributes.cancellation_reason],
-    ],
-    [attributes],
-  );
+      ["Автор", summaryUser(attributes.creator)],
+      ["Ответственный", summaryUser(attributes.responsible)],
+      ["Делегировано", summaryUser(attributes.delegated_user)],
+      ["Дата завершения", summaryDate(attributes.completion_date || taskRecurrenceRule?.date_end)],
+      ["Первый запуск", summaryDateTime(attributes.first_run_at)],
+      ["Следующий запуск", summaryDateTime(attributes.next_run_at)],
+      ["Принята", summaryDateTime(attributes.accepted_at)],
+      ["Отменена", summaryDateTime(attributes.cancelled_at)],
+      ["Причина завершения", displayValue(attributes.end_reason)],
+      ["Причина отмены", displayValue(attributes.cancellation_reason)],
+      ];
+
+      if (taskRecurrenceRule) {
+        items.splice(
+          5,
+          0,
+          ["Повторение с", summaryDate(taskRecurrenceRule.attributes?.date_start)],
+          ["Повторение до", summaryDate(taskRecurrenceRule.attributes?.date_end || attributes.completion_date)],
+        );
+      }
+
+      return items;
+  }, [attributes, taskRecurrenceRule]);
 
   if (taskQuery.isPending) {
     return <div className="page-state">Загружаем задачу...</div>;
@@ -296,60 +352,14 @@ export function TaskDetail({ api }) {
   }
 
   return (
-    <section className="stack">
-      <header className="page-header">
-        <p className="eyebrow">Задача</p>
-        <h2>{attributes.name || "Без названия"}</h2>
-        <p>{attributes.description || "Описание не добавлено"}</p>
-      </header>
-
-      {feedback ? <div className="alert">{feedback}</div> : null}
-
-      <div className="panel">
-        <h3>Редактирование</h3>
-        <form
-          className="stack"
-          onSubmit={(event) => {
-            event.preventDefault();
-            updateMutation.mutate();
-          }}
-        >
-          <div className="form-grid">
-            <label>
-              Название
-              <input
-                value={editValues.name}
-                onChange={(event) => setEditValues((current) => ({ ...current, name: event.target.value }))}
-              />
-            </label>
-            <label>
-              Дата завершения
-              <input
-                type="date"
-                value={editValues.completion_date}
-                onChange={(event) =>
-                  setEditValues((current) => ({ ...current, completion_date: event.target.value }))
-                }
-              />
-            </label>
-          </div>
-          <label>
-            Описание
-            <textarea
-              value={editValues.description}
-              onChange={(event) => setEditValues((current) => ({ ...current, description: event.target.value }))}
-            />
-          </label>
-          {updateMutation.isError ? <div className="alert error">{mutationError(updateMutation.error)}</div> : null}
-          <button type="submit" disabled={updateMutation.isPending}>
-            Сохранить
-          </button>
-        </form>
-      </div>
-
-      <div className="panel">
-        <h3>Действия</h3>
-        <div className="toolbar">
+    <section className="stack detail-page">
+      <header className="detail-topbar">
+        <div>
+          <p className="eyebrow">Задача</p>
+          <h2>{attributes.name || "Без названия"}</h2>
+          <p className="header-copy">{attributes.description || "Описание не добавлено"}</p>
+        </div>
+        <div className="detail-actions">
           <button
             type="button"
             onClick={() => acceptMutation.mutate()}
@@ -372,143 +382,194 @@ export function TaskDetail({ api }) {
             Деактивировать
           </button>
         </div>
-        {acceptMutation.isError ? <div className="alert error">{mutationError(acceptMutation.error)}</div> : null}
-        {declineMutation.isError ? <div className="alert error">{mutationError(declineMutation.error)}</div> : null}
-        {deactivateMutation.isError ? <div className="alert error">{mutationError(deactivateMutation.error)}</div> : null}
-      </div>
+      </header>
 
-      <div className="panel">
-        <h3>Детали задачи</h3>
-        <dl className="meta-grid">
-          {summaryItems.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{displayValue(value)}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      {feedback ? <div className="alert">{feedback}</div> : null}
 
-      <div className="panel stack">
-        <h3>Теги</h3>
-        {tagsQuery.isPending ? <div className="page-state">Загружаем теги...</div> : null}
-        {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
-        {attachedTags.length ? (
-          <div className="stack">
-            {attachedTags.map((tag) => (
-              <div className="row-between" key={tagId(tag)}>
-                <div>
-                  <strong>{tagName(tag)}</strong>
-                  {tagDescription(tag) ? <p>{tagDescription(tag)}</p> : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => detachMutation.mutate(tagId(tag))}
-                  disabled={detachMutation.isPending}
-                >
-                  Снять
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="page-state">У задачи пока нет тегов.</div>
-        )}
-        {!tagsQuery.isPending && availableTags.length ? (
-          <div className="toolbar">
-            <label>
-              Добавить тег
-              <select value={selectedTagId} onChange={(event) => setSelectedTagId(event.target.value)}>
-                {availableTags.map((tag) => (
-                  <option key={tagId(tag)} value={tagId(tag)}>
-                    {tagName(tag)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => attachMutation.mutate()}
-              disabled={!selectedTagId || attachMutation.isPending}
+      <div className="detail-layout">
+        <div className="detail-column">
+          <section className="detail-panel">
+            <h3>Основная информация</h3>
+            <form
+              className="stack"
+              onSubmit={(event) => {
+                event.preventDefault();
+                updateMutation.mutate();
+              }}
             >
-              Добавить
-            </button>
-          </div>
-        ) : null}
-        {attachMutation.isError ? <div className="alert error">{mutationError(attachMutation.error)}</div> : null}
-        {detachMutation.isError ? <div className="alert error">{mutationError(detachMutation.error)}</div> : null}
-      </div>
-
-      {occurrence ? (
-        <div className="panel">
-          <h3>Выполнение</h3>
-          <dl className="meta-grid">
-            <div>
-              <dt>Статус</dt>
-              <dd>{labelFrom(occurrenceStatusLabels, occurrence.status, "—")}</dd>
-            </div>
-            <div>
-              <dt>Запланировано</dt>
-              <dd>{displayValue(occurrence.scheduled_at)}</dd>
-            </div>
-            <div>
-              <dt>Фактически</dt>
-              <dd>{displayValue(occurrence.actual_at)}</dd>
-            </div>
-            <div>
-              <dt>Перенесено на</dt>
-              <dd>{displayValue(occurrence.postponed_to)}</dd>
-            </div>
-            <div>
-              <dt>Причина пропуска</dt>
-              <dd>{displayValue(occurrence.skip_reason)}</dd>
-            </div>
-            <div>
-              <dt>Сгенерировано</dt>
-              <dd>{displayValue(occurrence.generated_at)}</dd>
-            </div>
-          </dl>
-
-          {canShowOccurrenceActions ? (
-            <div className="stack">
+              <div className="form-grid">
+                <label>
+                  Название
+                  <input
+                    value={editValues.name}
+                    onChange={(event) => setEditValues((current) => ({ ...current, name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Дата завершения
+                  <input
+                    type="date"
+                    value={editValues.completion_date}
+                    onChange={(event) =>
+                      setEditValues((current) => ({ ...current, completion_date: event.target.value }))
+                    }
+                  />
+                </label>
+              </div>
               <label>
-                Перенести на
-                <input
-                  type="datetime-local"
-                  value={postponedTo}
-                  onChange={(event) => setPostponedTo(event.target.value)}
+                Описание
+                <textarea
+                  value={editValues.description}
+                  onChange={(event) => setEditValues((current) => ({ ...current, description: event.target.value }))}
                 />
               </label>
+              {updateMutation.isError ? <div className="alert error">{mutationError(updateMutation.error)}</div> : null}
+              <button type="submit" disabled={updateMutation.isPending}>
+                Сохранить
+              </button>
+            </form>
+          </section>
+
+          <section className="detail-panel stack">
+            <h3>Теги</h3>
+            {tagsQuery.isPending ? <div className="page-state">Загружаем теги...</div> : null}
+            {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
+            {attachedTags.length ? (
+              <div className="detail-tags-row">
+                {attachedTags.map((tag) => (
+                  <div className="detail-tag-item" key={tagId(tag)}>
+                    <div className="detail-tag-copy">
+                      <strong>{tagName(tag)}</strong>
+                      {tagDescription(tag) ? <p className="muted-line">{tagDescription(tag)}</p> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => detachMutation.mutate(tagId(tag))}
+                      disabled={detachMutation.isPending}
+                    >
+                      Снять
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="page-state">У задачи пока нет тегов.</div>
+            )}
+            {!tagsQuery.isPending && availableTags.length ? (
               <div className="toolbar">
+                <label>
+                  Добавить тег
+                  <select value={selectedTagId} onChange={(event) => setSelectedTagId(event.target.value)}>
+                    {availableTags.map((tag) => (
+                      <option key={tagId(tag)} value={tagId(tag)}>
+                        {tagName(tag)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
-                  onClick={() => postponeMutation.mutate()}
-                  disabled={postponeMutation.isPending || !postponedTo}
+                  onClick={() => attachMutation.mutate()}
+                  disabled={!selectedTagId || attachMutation.isPending}
                 >
-                  Перенести
-                </button>
-                <button type="button" onClick={() => executeMutation.mutate()} disabled={executeMutation.isPending}>
-                  Выполнить
-                </button>
-                <label>
-                  Причина пропуска
-                  <input value={skipReason} onChange={(event) => setSkipReason(event.target.value)} />
-                </label>
-                <button type="button" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
-                  Пропустить
+                  Добавить
                 </button>
               </div>
-              {postponeMutation.isError ? <div className="alert error">{mutationError(postponeMutation.error)}</div> : null}
-              {executeMutation.isError ? <div className="alert error">{mutationError(executeMutation.error)}</div> : null}
-              {skipMutation.isError ? <div className="alert error">{mutationError(skipMutation.error)}</div> : null}
-            </div>
-          ) : (
-            <div className="page-state">
-              {occurrence.projected ? "Плановое выполнение доступно только для просмотра." : "Для этого выполнения нет действий."}
-            </div>
-          )}
+            ) : null}
+            {attachMutation.isError ? <div className="alert error">{mutationError(attachMutation.error)}</div> : null}
+            {detachMutation.isError ? <div className="alert error">{mutationError(detachMutation.error)}</div> : null}
+          </section>
         </div>
-      ) : null}
+
+        <div className="detail-column">
+          <section className="detail-summary-card">
+            <h3>Детали задачи</h3>
+            <dl className="detail-summary-table">
+              {summaryItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{displayValue(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          {occurrence ? (
+            <section className="detail-panel stack">
+              <h3>Временная шкала / Статистика</h3>
+              <dl className="detail-summary-table">
+                <div>
+                  <dt>Статус</dt>
+                  <dd>{labelFrom(occurrenceStatusLabels, occurrence.status, "—")}</dd>
+                </div>
+                <div>
+                  <dt>Запланировано</dt>
+                  <dd>{summaryDateTime(occurrence.scheduled_at)}</dd>
+                </div>
+                <div>
+                  <dt>Фактически</dt>
+                  <dd>{summaryDateTime(occurrence.actual_at)}</dd>
+                </div>
+                <div>
+                  <dt>Перенесено на</dt>
+                  <dd>{summaryDateTime(occurrence.postponed_to)}</dd>
+                </div>
+                <div>
+                  <dt>Причина пропуска</dt>
+                  <dd>{displayValue(occurrence.skip_reason)}</dd>
+                </div>
+                <div>
+                  <dt>Сгенерировано</dt>
+                  <dd>{summaryDateTime(occurrence.generated_at)}</dd>
+                </div>
+              </dl>
+
+              {canShowOccurrenceActions ? (
+                <div className="detail-actions-stack">
+                  <label>
+                    Отложить до
+                    <input
+                      type="datetime-local"
+                      value={postponedTo}
+                      onChange={(event) => setPostponedTo(event.target.value)}
+                    />
+                  </label>
+                  <div className="toolbar">
+                    <button
+                      type="button"
+                      onClick={() => postponeMutation.mutate()}
+                      disabled={postponeMutation.isPending || !postponedTo}
+                    >
+                      Отложить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => executeMutation.mutate()}
+                      disabled={executeMutation.isPending || !canExecuteOccurrence}
+                    >
+                      Выполнено
+                    </button>
+                    <label>
+                      Причина пропуска
+                      <input value={skipReason} onChange={(event) => setSkipReason(event.target.value)} />
+                    </label>
+                    <button type="button" onClick={() => skipMutation.mutate()} disabled={skipMutation.isPending}>
+                      Пропустить
+                    </button>
+                  </div>
+                  {postponeMutation.isError ? <div className="alert error">{mutationError(postponeMutation.error)}</div> : null}
+                  {executeMutation.isError ? <div className="alert error">{mutationError(executeMutation.error)}</div> : null}
+                  {skipMutation.isError ? <div className="alert error">{mutationError(skipMutation.error)}</div> : null}
+                </div>
+              ) : (
+                <div className="page-state">
+                  {occurrence.projected ? "Плановое выполнение доступно только для просмотра." : "Для этого выполнения нет действий."}
+                </div>
+              )}
+            </section>
+          ) : null}
+        </div>
+      </div>
     </section>
   );
 }

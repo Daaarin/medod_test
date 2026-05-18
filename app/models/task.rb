@@ -1,3 +1,48 @@
+# == Schema Information
+#
+# Table name: tasks
+#
+#  id                  :bigint           not null, primary key
+#  accepted_at         :datetime
+#  cancellation_reason :string
+#  cancelled_at        :datetime
+#  completed_at        :datetime
+#  completion_date     :date
+#  deactivated_at      :datetime
+#  description         :text
+#  end_reason          :string
+#  first_run_at        :datetime
+#  name                :string           not null
+#  next_run_at         :datetime
+#  status              :string           not null
+#  task_kind           :string           not null
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  creator_id          :bigint
+#  delegated_user_id   :bigint
+#  parent_task_id      :bigint
+#  responsible_id      :bigint
+#  root_task_id        :bigint
+#
+# Indexes
+#
+#  index_tasks_on_creator_id         (creator_id)
+#  index_tasks_on_delegated_user_id  (delegated_user_id)
+#  index_tasks_on_next_run_at        (next_run_at)
+#  index_tasks_on_parent_task_id     (parent_task_id)
+#  index_tasks_on_responsible_id     (responsible_id)
+#  index_tasks_on_root_task_id       (root_task_id)
+#  index_tasks_on_status             (status)
+#  index_tasks_on_task_kind          (task_kind)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (creator_id => users.id)
+#  fk_rails_...  (delegated_user_id => users.id)
+#  fk_rails_...  (parent_task_id => tasks.id)
+#  fk_rails_...  (responsible_id => users.id)
+#  fk_rails_...  (root_task_id => tasks.id)
+#
 class Task < ApplicationRecord
   belongs_to :parent_task, class_name: "Task", optional: true, inverse_of: :child_tasks
   belongs_to :root_task, class_name: "Task", optional: true
@@ -33,6 +78,9 @@ class Task < ApplicationRecord
   validate :ownership_context_required
   validate :end_reason_required_for_final_tasks
   validate :one_time_tasks_must_not_have_recurrence_rule
+  before_validation :normalize_one_time_schedule_from_completion_date
+  before_validation :normalize_recurring_end_date
+  validate :completion_date_must_follow_initial_schedule
   before_update :prevent_mutation_when_final
   before_destroy :prevent_destroy
 
@@ -55,7 +103,33 @@ class Task < ApplicationRecord
     )
   end
 
+  def effective_completion_date
+    completion_date || recurrence_rule&.date_end
+  end
+
+  def effective_recurrence_end_date
+    recurrence_rule&.date_end || completion_date
+  end
+
   private
+
+    def normalize_one_time_schedule_from_completion_date
+      return unless one_time?
+      return if completion_date.blank?
+      return if first_run_at.present? || next_run_at.present?
+
+      normalized_time = Time.zone.local(
+        completion_date.year,
+        completion_date.month,
+        completion_date.day,
+        12,
+        0,
+        0
+      )
+
+      self.first_run_at = normalized_time
+      self.next_run_at = normalized_time
+    end
 
     def end_reason_required_for_final_tasks
       return unless final? && end_reason.blank?
@@ -73,6 +147,49 @@ class Task < ApplicationRecord
       return unless one_time? && recurrence_rule.present?
 
       errors.add(:recurrence_rule, "must be absent for one-time tasks")
+    end
+
+    def normalize_recurring_end_date
+      return unless recurring? && recurrence_rule.present?
+
+      completion_date_changed = will_save_change_to_completion_date?
+      recurrence_end_changed = recurrence_rule.will_save_change_to_date_end?
+      return unless completion_date_changed || recurrence_end_changed
+
+      completion_end_date = completion_date
+      recurrence_end_date = recurrence_rule.date_end
+
+      if completion_date_changed && recurrence_end_changed && completion_end_date != recurrence_end_date
+        errors.add(:completion_date, "must match recurrence end date")
+        errors.add(:base, "recurrence_rule.date_end must match completion_date")
+        throw :abort
+      end
+
+      effective_end_date = completion_date_changed ? completion_end_date : recurrence_end_date
+      self.completion_date = effective_end_date
+      recurrence_rule.date_end = effective_end_date
+    end
+
+    def completion_date_must_follow_initial_schedule
+      return if completion_date.blank?
+
+      scheduled_times = [ first_run_at, next_run_at ]
+      scheduled_times << initial_recurring_run_at if recurring?
+      latest_schedule_time = scheduled_times.compact.max
+      return if latest_schedule_time.blank?
+      return if completion_date >= latest_schedule_time.to_date
+
+      errors.add(:base, "completion_date must be on or after the first or next run")
+    end
+
+    def initial_recurring_run_at
+      return unless recurring? && recurrence_rule.present?
+      return if recurrence_rule.date_start.blank?
+
+      TaskScheduling::NextOccurrenceCalculator.call(
+        task: self,
+        from_time: first_run_at || recurrence_rule.date_start.beginning_of_day
+      )
     end
 
     def prevent_mutation_when_final

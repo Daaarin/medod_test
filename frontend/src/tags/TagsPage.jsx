@@ -89,78 +89,68 @@ export function TagsPage({ api, includeDeactivated = false }) {
         <div>
           <p className="eyebrow">Каталог</p>
           <h2>Теги</h2>
+          <p className="header-copy">Быстрое добавление и плотный список тегов для операционной работы.</p>
         </div>
       </header>
 
       {tagsQuery.isError ? <div className="alert error">{readError(tagsQuery.error)}</div> : null}
 
-      <form
-        className="panel stack"
-        onSubmit={(event) => {
-          event.preventDefault();
-          createMutation.mutate(createValues);
-        }}
-      >
-        <h3>Новый тег</h3>
-        <div className="form-grid">
-          <label>
-            Название
-            <input
-              value={createValues.name}
-              onChange={(event) => setCreateValues((current) => ({ ...current, name: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Описание
-            <input
-              value={createValues.description}
-              onChange={(event) => setCreateValues((current) => ({ ...current, description: event.target.value }))}
-            />
-          </label>
-        </div>
+      <section className="task-quick-add">
+        <form
+          className="task-quick-add-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            createMutation.mutate(createValues);
+          }}
+        >
+          <h3>Quick Add New Tag</h3>
+          <input
+            placeholder="Название"
+            value={createValues.name}
+            onChange={(event) => setCreateValues((current) => ({ ...current, name: event.target.value }))}
+            required
+          />
+          <input
+            placeholder="Описание"
+            value={createValues.description}
+            onChange={(event) => setCreateValues((current) => ({ ...current, description: event.target.value }))}
+          />
+          <button type="submit" disabled={createMutation.isPending}>
+            Создать тег
+          </button>
+        </form>
         {createMutation.isError ? <div className="alert error">{readError(createMutation.error)}</div> : null}
-        <button type="submit" disabled={createMutation.isPending}>
-          Создать тег
-        </button>
-      </form>
+      </section>
 
-      <div className="stack">
-        {tags.map((tag) => {
-          const id = tagId(tag);
-          const systemTag = tagIsSystem(tag);
-          const inactive = tagIsInactive(tag);
-          const draft = editValues[id] || { name: tagName(tag), description: tagDescription(tag) };
+      {updateMutation.isError ? <div className="alert error">{readError(updateMutation.error)}</div> : null}
+      {deactivateMutation.isError ? <div className="alert error">{readError(deactivateMutation.error)}</div> : null}
 
-          return (
-            <article className="table-card" key={id}>
-              <div className="stack">
-                <div className="row-between">
-                  <div>
-                    <h3>{tagName(tag)}</h3>
-                    <p>{tagDescription(tag) || "Описание не добавлено"}</p>
-                  </div>
-                  <div className="toolbar">
-                    {systemTag ? <span className="status-badge">Системный тег</span> : null}
-                    {inactive ? <span className="status-badge">Неактивен</span> : null}
-                    <button type="button" disabled={systemTag || inactive} onClick={() => deactivateMutation.mutate(id)}>
-                      Деактивировать
-                    </button>
-                  </div>
-                </div>
-                <form
-                  className="stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    updateMutation.mutate({ id, tag: draft });
-                  }}
-                >
-                  <div className="form-grid">
-                    <label>
-                      Название
+      <section className="tag-catalog">
+        {!tagsQuery.isPending && !tags.length ? <div className="page-state">Теги не найдены.</div> : null}
+        {tags.length ? (
+          <table className="tag-table" aria-label="Теги">
+            <thead>
+              <tr>
+                <th>Тег</th>
+                <th>Описание</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tags.map((tag) => {
+                const id = tagId(tag);
+                const systemTag = tagIsSystem(tag);
+                const inactive = tagIsInactive(tag);
+                const draft = editValues[id] || { name: tagName(tag), description: tagDescription(tag) };
+                const locked = systemTag || inactive;
+
+                return (
+                  <tr key={id}>
+                    <td className="tag-name-cell">
                       <input
                         value={draft.name}
-                        disabled={systemTag || inactive}
+                        disabled={locked}
                         onChange={(event) =>
                           setEditValues((current) => ({
                             ...current,
@@ -168,12 +158,11 @@ export function TagsPage({ api, includeDeactivated = false }) {
                           }))
                         }
                       />
-                    </label>
-                    <label>
-                      Описание
+                    </td>
+                    <td className="tag-description-cell">
                       <input
                         value={draft.description}
-                        disabled={systemTag || inactive}
+                        disabled={locked}
                         onChange={(event) =>
                           setEditValues((current) => ({
                             ...current,
@@ -181,20 +170,39 @@ export function TagsPage({ api, includeDeactivated = false }) {
                           }))
                         }
                       />
-                    </label>
-                  </div>
-                  {updateMutation.isError ? <div className="alert error">{readError(updateMutation.error)}</div> : null}
-                  <button type="submit" disabled={systemTag || inactive || updateMutation.isPending}>
-                    Сохранить тег
-                  </button>
-                </form>
-              </div>
-            </article>
-          );
-        })}
-
-        {!tagsQuery.isPending && !tags.length ? <div className="page-state">Теги не найдены.</div> : null}
-      </div>
+                    </td>
+                    <td>
+                      <div className="tag-status-stack">
+                        {systemTag ? <span className="status-badge neutral">Системный тег</span> : null}
+                        {inactive ? <span className="status-badge warning">Неактивен</span> : null}
+                        {!systemTag && !inactive ? <span className="status-badge success">Активен</span> : null}
+                      </div>
+                    </td>
+                    <td className="tag-actions-cell">
+                      <div className="toolbar">
+                        <button
+                          type="button"
+                          disabled={locked || updateMutation.isPending}
+                          onClick={() => updateMutation.mutate({ id, tag: draft })}
+                        >
+                          Сохранить
+                        </button>
+                        <button
+                          type="button"
+                          disabled={locked || deactivateMutation.isPending}
+                          onClick={() => deactivateMutation.mutate(id)}
+                        >
+                          Деактивировать
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : null}
+      </section>
     </section>
   );
 }

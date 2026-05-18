@@ -52,11 +52,76 @@ RSpec.describe Tasks::PostponeOccurrence do
         postpone_to: Time.zone.parse("2026-05-10 10:00"),
         actor_id: responsible.id
       )
-    end.to raise_error(ArgumentError, "postpone_to must be on or after the scheduled occurrence")
+    end.to raise_error(ArgumentError, "postpone_to must be on or after the current occurrence time")
 
     expect(occurrence.reload.status).to eq("planned")
     expect(task.reload.next_run_at).to eq(Time.zone.parse("2026-05-11 10:00"))
     expect(task.task_events).to be_empty
+  end
+
+  it "allows postponing an already postponed current occurrence only further forward" do
+    responsible = build_user(email: "responsible-again@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible,
+      next_run_at: Time.zone.parse("2026-05-11 10:00")
+    )
+    occurrence = task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-11 10:00"),
+      status: :planned
+    )
+
+    described_class.call(
+      occurrence: occurrence,
+      postpone_to: Time.zone.parse("2026-05-12 14:00"),
+      actor_id: responsible.id
+    )
+
+    described_class.call(
+      occurrence: occurrence,
+      postpone_to: Time.zone.parse("2026-05-13 09:00"),
+      actor_id: responsible.id
+    )
+
+    expect(occurrence.reload.status).to eq("postponed")
+    expect(occurrence.postponed_to).to eq(Time.zone.parse("2026-05-13 09:00"))
+    expect(task.reload.next_run_at).to eq(Time.zone.parse("2026-05-13 09:00"))
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "postponed", "postponed" ])
+  end
+
+  it "rejects postponing earlier than the current postponed time" do
+    responsible = build_user(email: "responsible-earlier@example.test", role: :doctor)
+    task = Task.create!(
+      task_kind: :recurring,
+      status: :ongoing,
+      name: "Check email",
+      responsible: responsible,
+      next_run_at: Time.zone.parse("2026-05-11 10:00")
+    )
+    occurrence = task.task_occurrences.create!(
+      scheduled_at: Time.zone.parse("2026-05-11 10:00"),
+      status: :planned
+    )
+
+    described_class.call(
+      occurrence: occurrence,
+      postpone_to: Time.zone.parse("2026-05-12 14:00"),
+      actor_id: responsible.id
+    )
+
+    expect do
+      described_class.call(
+        occurrence: occurrence,
+        postpone_to: Time.zone.parse("2026-05-12 13:00"),
+        actor_id: responsible.id
+      )
+    end.to raise_error(ArgumentError, "postpone_to must be on or after the current occurrence time")
+
+    expect(occurrence.reload.postponed_to).to eq(Time.zone.parse("2026-05-12 14:00"))
+    expect(task.reload.next_run_at).to eq(Time.zone.parse("2026-05-12 14:00"))
+    expect(task.task_events.order(:id).pluck(:event_type)).to eq([ "postponed" ])
   end
 
   it "rejects non-planned occurrences before mutating" do
@@ -78,7 +143,7 @@ RSpec.describe Tasks::PostponeOccurrence do
         postpone_to: Time.zone.parse("2026-05-12 14:00"),
         actor_id: responsible.id
       )
-    end.to raise_error(ArgumentError, "occurrence must be planned on an active task")
+    end.to raise_error(ArgumentError, "occurrence must be planned or postponed on an active task")
 
     expect(occurrence.reload.status).to eq("executed")
     expect(task.reload.next_run_at).to be_nil
@@ -105,7 +170,7 @@ RSpec.describe Tasks::PostponeOccurrence do
         postpone_to: Time.zone.parse("2026-05-12 14:00"),
         actor_id: responsible.id
       )
-    end.to raise_error(ArgumentError, "occurrence must be planned on an active task")
+    end.to raise_error(ArgumentError, "occurrence must be planned or postponed on an active task")
 
     expect(occurrence.reload.status).to eq("planned")
     expect(task.reload.next_run_at).to be_nil
@@ -132,7 +197,7 @@ RSpec.describe Tasks::PostponeOccurrence do
         postpone_to: Time.zone.parse("2026-05-12 14:00"),
         actor_id: responsible.id
       )
-    end.to raise_error(ArgumentError, "occurrence must be planned on an active task")
+    end.to raise_error(ArgumentError, "occurrence must be planned or postponed on an active task")
 
     expect(occurrence.reload.status).to eq("planned")
     expect(task.reload.next_run_at).to eq(Time.zone.parse("2026-05-11 10:00"))

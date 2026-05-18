@@ -87,6 +87,21 @@ export function AuthProvider({ api, children }) {
     }
   }
 
+  async function register(credentials) {
+    setError(null);
+    try {
+      const payload = await api.register(credentials);
+      storeToken(payload.token);
+      setToken(payload.token);
+      setUser(payload.user ?? null);
+      return payload;
+    } catch (requestError) {
+      const message = normalizeMessage(requestError);
+      setError(message);
+      throw requestError;
+    }
+  }
+
   function logout() {
     clearStoredToken();
     setToken(null);
@@ -103,6 +118,7 @@ export function AuthProvider({ api, children }) {
       error,
       setError,
       login,
+      register,
       logout,
       isAdmin: user?.role === "administrator",
     }),

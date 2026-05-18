@@ -45,6 +45,10 @@ module TaskScheduling
 
       attr_reader :task, :from_time
 
+      def effective_date_end
+        task.effective_recurrence_end_date
+      end
+
       def next_one_time_occurrence
         scheduled_time = task.next_run_at || task.first_run_at
         return nil unless scheduled_time
@@ -61,7 +65,7 @@ module TaskScheduling
 
         loop do
           candidate = zoned_occurrence_time(zone, candidate_date, rule.execution_time)
-          return nil if past_date_end?(candidate, rule.date_end)
+          return nil if past_date_end?(candidate, effective_date_end)
           return candidate if candidate >= search_time
 
           candidate_date += interval
@@ -77,7 +81,7 @@ module TaskScheduling
 
         loop do
           candidate = monthly_candidate(rule.date_start, chosen_day, period * interval, start_time.time_zone)
-          return nil if past_date_end?(candidate, rule.date_end)
+          return nil if past_date_end?(candidate, effective_date_end)
           return candidate if candidate >= search_time
 
           period += 1
@@ -94,7 +98,7 @@ module TaskScheduling
 
         loop do
           candidate = yearly_candidate(rule.date_start.year + (period * interval), chosen_month, chosen_day, start_time.time_zone)
-          return nil if past_date_end?(candidate, rule.date_end)
+          return nil if past_date_end?(candidate, effective_date_end)
           return candidate if candidate >= search_time
 
           period += 1
@@ -110,7 +114,7 @@ module TaskScheduling
 
         loop do
           candidate = zoned_occurrence_time(zone, candidate_date, rule.execution_time)
-          return nil if past_date_end?(candidate, rule.date_end)
+          return nil if past_date_end?(candidate, effective_date_end)
           return candidate if parity_matches_day_of_month?(candidate_date, parity) && candidate >= search_time
 
           candidate_date += 1.day
@@ -126,7 +130,7 @@ module TaskScheduling
 
         loop do
           candidate = zoned_occurrence_time(zone, candidate_date, rule.execution_time)
-          return nil if past_date_end?(candidate, rule.date_end)
+          return nil if past_date_end?(candidate, effective_date_end)
           return candidate if parity_matches_weekday?(candidate_date, parity) && candidate >= search_time
 
           candidate_date += 1.day
@@ -225,7 +229,7 @@ module TaskScheduling
 
       def specific_date_within_window?(rule, run_date)
         return false if run_date < rule.date_start
-        return false if rule.date_end.present? && run_date > rule.date_end
+        return false if effective_date_end.present? && run_date > effective_date_end
 
         true
       end

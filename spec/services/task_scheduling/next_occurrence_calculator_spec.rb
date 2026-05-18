@@ -165,6 +165,21 @@ RSpec.describe TaskScheduling::NextOccurrenceCalculator do
     expect(result).to be_nil
   end
 
+  it "returns nil after the task completion_date when recurrence_rule.date_end is missing" do
+    task = build_recurring_task(
+      rule_type: :every_n_days,
+      interval_value: 2,
+      execution_time: "10:00",
+      timezone: "Europe/Moscow",
+      date_start: Date.new(2026, 5, 1)
+    )
+    task.completion_date = Date.new(2026, 5, 5)
+
+    result = described_class.call(task: task, from_time: zone.parse("2026-05-06 00:00"))
+
+    expect(result).to be_nil
+  end
+
   def build_recurring_task(**rule_attributes)
     responsible = build_user(email: "responsible@example.test", role: :doctor)
     task = Task.new(

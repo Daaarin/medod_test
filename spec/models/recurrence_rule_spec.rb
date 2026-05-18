@@ -1,3 +1,32 @@
+# == Schema Information
+#
+# Table name: recurrence_rules
+#
+#  id                  :bigint           not null, primary key
+#  date_end            :date
+#  date_start          :date             not null
+#  day_of_month        :integer
+#  day_of_month_parity :string
+#  execution_time      :time             not null
+#  interval_value      :integer
+#  month_of_year       :integer
+#  rule_type           :string           not null
+#  timezone            :string           not null
+#  weekday             :integer
+#  weekday_parity      :string
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  task_id             :bigint           not null
+#
+# Indexes
+#
+#  index_recurrence_rules_on_rule_type  (rule_type)
+#  index_recurrence_rules_on_task_id    (task_id) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (task_id => tasks.id)
+#
 require "rails_helper"
 
 RSpec.describe RecurrenceRule, type: :model do

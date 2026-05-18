@@ -1,3 +1,15 @@
+# == Schema Information
+#
+# Table name: tags
+#
+#  id             :bigint           not null, primary key
+#  deactivated_at :datetime
+#  description    :text
+#  is_system_tag  :boolean          default(FALSE), not null
+#  name           :string           not null
+#  created_at     :datetime         not null
+#  updated_at     :datetime         not null
+#
 require "rails_helper"
 
 RSpec.describe Tag, type: :model do

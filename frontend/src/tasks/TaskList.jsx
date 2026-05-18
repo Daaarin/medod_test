@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TaskFilters } from "./TaskFilters";
 import { labelFrom, occurrenceStatusLabels, statusLabels, taskKindLabels } from "./taskConstants";
+import { formatDate, formatDateTime, formatUserLabel, todayIsoDate } from "../utils/display";
 
 function compactFilters(filters = {}) {
   return Object.fromEntries(
@@ -22,25 +23,19 @@ function readError(error) {
   return "Не удалось загрузить задачи";
 }
 
-function displayValue(value) {
-  return value ?? "—";
-}
-
-function formatDateTime(value) {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(parsed);
-}
-
 function rowTitle(task) {
   return task?.attributes?.name || "Без названия";
+}
+
+function userValue(user) {
+  return formatUserLabel(user);
+}
+
+function addDaysIsoDate(value, days) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  date.setDate(date.getDate() + days);
+  return todayIsoDate(date);
 }
 
 export function TaskRow({ task }) {
@@ -48,61 +43,55 @@ export function TaskRow({ task }) {
   const occurrence = attributes.occurrence ?? null;
   const baseTaskId = String(task?.id ?? "").split(":")[0];
   const occurrenceTime = occurrence?.occurs_at || occurrence?.scheduled_at;
-  const occurrenceLabel = occurrence?.projected ? "План" : "Выполнение";
+  const planningTime = attributes.first_run_at || attributes.next_run_at || occurrenceTime;
+  const dueDate = attributes.completion_date || attributes.recurrence_rule?.attributes?.date_end;
+  const recurrenceEndDate = attributes.recurrence_rule?.attributes?.date_end || attributes.completion_date;
 
   return (
-    <article className="table-card">
-      <div className="task-row-header">
-        <div className="task-row-main">
-          <h3>{rowTitle(task)}</h3>
-          <p>{attributes.description || "Описание не добавлено"}</p>
+    <tr>
+      <td className="task-title-cell">
+        <strong>{rowTitle(task)}</strong>
+        <p>{attributes.description || "Описание не добавлено"}</p>
+      </td>
+      <td className="task-meta">
+        <span className="task-row-badge">
+          <span className="status-badge">{labelFrom(statusLabels, attributes.status, "—")}</span>
+          {occurrence ? (
+            <span className="task-subline">
+              {labelFrom(occurrenceStatusLabels, occurrence.status, "—")}
+              {occurrenceTime ? ` • ${formatDateTime(occurrenceTime)}` : ""}
+            </span>
+          ) : null}
+        </span>
+      </td>
+      <td>{labelFrom(taskKindLabels, attributes.task_kind, "—")}</td>
+      <td className="task-meta">{userValue(attributes.creator)}</td>
+      <td className="task-meta">{userValue(attributes.responsible)}</td>
+      <td className="task-meta">{userValue(attributes.delegated_user)}</td>
+      <td className="task-meta">
+        <div className="task-meta-stack">
+          <span>{planningTime ? formatDateTime(planningTime) : "—"}</span>
+          {recurrenceEndDate ? <span className="task-subline">Повторяется до {formatDate(recurrenceEndDate)}</span> : null}
         </div>
+      </td>
+      <td className="task-meta">
+        <div className="task-meta-stack">
+          <span>{dueDate ? formatDate(dueDate) : "—"}</span>
+        </div>
+      </td>
+      <td className="task-actions">
         {baseTaskId ? (
           <Link className="inline-action" to={`/tasks/${baseTaskId}`} state={occurrence ? { occurrence } : undefined}>
             Открыть
           </Link>
         ) : null}
-      </div>
-      <dl className="meta-grid compact">
-        <div>
-          <dt>Статус</dt>
-          <dd>{labelFrom(statusLabels, attributes.status, "—")}</dd>
-        </div>
-        <div>
-          <dt>Тип</dt>
-          <dd>{labelFrom(taskKindLabels, attributes.task_kind, "—")}</dd>
-        </div>
-        <div>
-          <dt>Автор</dt>
-          <dd>{displayValue(attributes.creator_id)}</dd>
-        </div>
-        <div>
-          <dt>Ответственный</dt>
-          <dd>{displayValue(attributes.responsible_id)}</dd>
-        </div>
-        <div>
-          <dt>Делегировано</dt>
-          <dd>{displayValue(attributes.delegated_user_id)}</dd>
-        </div>
-      </dl>
-      {occurrence ? (
-        <p className="muted-line">
-          {occurrenceLabel}: {labelFrom(occurrenceStatusLabels, occurrence.status, "—")}
-          {occurrenceTime ? `, ${formatDateTime(occurrenceTime)}` : ""}
-        </p>
-      ) : null}
-    </article>
+      </td>
+    </tr>
   );
 }
 
-function compactQueryFilters(filters, hasDateRange) {
-  const compacted = compactFilters(filters);
-
-  if (!hasDateRange) {
-    delete compacted.occurrence_status;
-  }
-
-  return compacted;
+function compactQueryFilters(filters) {
+  return compactFilters(filters);
 }
 
 export function TaskListPage({
@@ -112,10 +101,15 @@ export function TaskListPage({
   showScope = true,
   hiddenFilters = [],
   primaryAction = null,
+  defaultFromToday = true,
 }) {
-  const [filters, setFilters] = useState(() => ({ ...initialFilters }));
-  const hasDateRange = Boolean(filters.from || filters.to);
-  const queryFilters = useMemo(() => compactQueryFilters(filters, hasDateRange), [filters, hasDateRange]);
+  const [filters, setFilters] = useState(() => ({
+    ...(defaultFromToday ? { from: todayIsoDate() } : {}),
+    ...(defaultFromToday ? { to: addDaysIsoDate(todayIsoDate(), 30) } : {}),
+    ...(defaultFromToday ? { include_unscheduled: true } : {}),
+    ...initialFilters,
+  }));
+  const queryFilters = useMemo(() => compactQueryFilters(filters), [filters]);
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", queryFilters],
@@ -130,6 +124,7 @@ export function TaskListPage({
         <div>
           <p className="eyebrow">Рабочая область</p>
           <h2>{title}</h2>
+          <p className="header-copy">Плотный список задач с фильтрами и быстрым переходом в карточку.</p>
         </div>
         {primaryAction ? (
           <Link className="page-action" to={primaryAction.to}>
@@ -137,17 +132,38 @@ export function TaskListPage({
           </Link>
         ) : null}
       </header>
-      <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
-      {tasksQuery.isPending ? <div className="page-state">Загружаем задачи...</div> : null}
-      {tasksQuery.isError ? <div className="alert error">{readError(tasksQuery.error)}</div> : null}
-      {!tasksQuery.isPending && !tasksQuery.isError && rows.length === 0 ? (
-        <div className="page-state">Задачи не найдены.</div>
-      ) : null}
-      <div className="stack">
-        {rows.map((task) => (
-          <TaskRow key={task.id} task={task} />
-        ))}
-      </div>
+      <section className="task-list-shell">
+        <TaskFilters filters={filters} onChange={setFilters} showScope={showScope} hiddenFilters={hiddenFilters} />
+        {tasksQuery.isPending ? <div className="page-state">Загружаем задачи...</div> : null}
+        {tasksQuery.isError ? <div className="page-state alert error">{readError(tasksQuery.error)}</div> : null}
+        {!tasksQuery.isPending && !tasksQuery.isError && rows.length === 0 ? (
+          <div className="page-state">Задачи не найдены.</div>
+        ) : null}
+        {!tasksQuery.isPending && !tasksQuery.isError && rows.length > 0 ? (
+          <div className="table-card">
+            <table className="task-table" aria-label={title}>
+              <thead>
+                <tr>
+                  <th>Название</th>
+                  <th>Статус</th>
+                  <th>Тип</th>
+                  <th>Автор</th>
+                  <th>Ответственный</th>
+                  <th>Делегировано</th>
+                  <th>Запуск</th>
+                  <th>Срок</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((task) => (
+                  <TaskRow key={task.id} task={task} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
     </section>
   );
 }

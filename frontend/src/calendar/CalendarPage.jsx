@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { formatDate, formatDateTime } from "../utils/display";
 import { labelFrom, occurrenceStatusLabels } from "../tasks/taskConstants";
 
 const weekdayLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -62,14 +63,38 @@ function occurrenceDate(task) {
   return value ? String(value).slice(0, 10) : "";
 }
 
-function occurrenceTime(task) {
+function occurrenceTimeValue(task) {
   const occurrence = occurrenceFor(task);
   const value = occurrence?.occurs_at || occurrence?.scheduled_at;
   if (!value) return "";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
 
-  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(parsed);
+  return parsed.getTime();
+}
+
+function occurrenceTimeLabel(task) {
+  const occurrence = occurrenceFor(task);
+  const value = occurrence?.occurs_at || occurrence?.scheduled_at;
+  return value ? formatDateTime(value).split(" ").slice(1).join(" ") : "";
+}
+
+function recurrenceEndLabel(task) {
+  const attributes = task?.attributes ?? {};
+  const recurrenceRule = attributes.recurrence_rule?.attributes ?? null;
+  const endDate = recurrenceRule?.date_end || attributes.completion_date;
+  return endDate ? `Повторяется до ${formatDate(endDate)}` : "";
+}
+
+function sortTasksByOccurrenceTime(tasks) {
+  return [...tasks].sort((left, right) => {
+    const leftTime = occurrenceTimeValue(left);
+    const rightTime = occurrenceTimeValue(right);
+    if (!leftTime && !rightTime) return taskTitle(left).localeCompare(taskTitle(right), "ru");
+    if (!leftTime) return 1;
+    if (!rightTime) return -1;
+    return leftTime - rightTime;
+  });
 }
 
 function groupByDate(tasks) {
@@ -88,6 +113,18 @@ function readError(error) {
   return "Не удалось загрузить календарь";
 }
 
+function mergeCalendarTasks(plannedTasks, postponedTasks) {
+  const seen = new Set();
+
+  return [ ...(plannedTasks || []), ...(postponedTasks || []) ].filter((task) => {
+    const key = String(task?.id ?? "");
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
 export function CalendarPage({ api, initialDate = new Date() }) {
   const [visibleMonth, setVisibleMonth] = useState(() => initialDate);
   const [selectedDate, setSelectedDate] = useState(() => dateKey(initialDate));
@@ -96,12 +133,21 @@ export function CalendarPage({ api, initialDate = new Date() }) {
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", "calendar", range],
-    queryFn: () => api.tasks({ ...range, occurrence_status: "planned" }),
+    queryFn: async () => {
+      const [ plannedPayload, postponedPayload ] = await Promise.all([
+        api.tasks({ ...range, occurrence_status: "planned" }),
+        api.tasks({ ...range, occurrence_status: "postponed" }),
+      ]);
+
+      return {
+        data: mergeCalendarTasks(plannedPayload?.data, postponedPayload?.data),
+      };
+    },
   });
 
   const tasks = tasksQuery.data?.data || [];
   const tasksByDate = useMemo(() => groupByDate(tasks), [tasks]);
-  const selectedTasks = tasksByDate[selectedDate] || [];
+  const selectedTasks = useMemo(() => sortTasksByOccurrenceTime(tasksByDate[selectedDate] || []), [selectedDate, tasksByDate]);
 
   function moveMonth(offset) {
     setVisibleMonth((current) => {
@@ -149,8 +195,9 @@ export function CalendarPage({ api, initialDate = new Date() }) {
             </div>
           ))}
           {days.map((day) => {
-            const dayTasks = tasksByDate[day.key] || [];
+            const dayTasks = sortTasksByOccurrenceTime(tasksByDate[day.key] || []);
             const active = selectedDate === day.key;
+            const hiddenCount = Math.max(0, dayTasks.length - 2);
             return (
               <button
                 type="button"
@@ -159,11 +206,11 @@ export function CalendarPage({ api, initialDate = new Date() }) {
                 onClick={() => setSelectedDate(day.key)}
               >
                 <span className="calendar-day-number">{day.date.getDate()}</span>
-                {dayTasks.length ? <span className="calendar-count">{dayTasks.length}</span> : null}
                 <span className="calendar-preview">
                   {dayTasks.slice(0, 2).map((task) => (
                     <span key={task.id}>{taskTitle(task)}</span>
                   ))}
+                  {hiddenCount > 0 ? <span className="calendar-preview-more">+{hiddenCount}</span> : null}
                 </span>
               </button>
             );
@@ -181,6 +228,7 @@ export function CalendarPage({ api, initialDate = new Date() }) {
             {selectedTasks.map((task) => {
               const baseTaskId = String(task?.id ?? "").split(":")[0];
               const occurrence = occurrenceFor(task);
+              const recurrenceEnd = recurrenceEndLabel(task);
               return (
                 <Link
                   className="agenda-item"
@@ -188,9 +236,10 @@ export function CalendarPage({ api, initialDate = new Date() }) {
                   to={`/tasks/${baseTaskId}`}
                   state={occurrence ? { occurrence } : undefined}
                 >
-                  <span className="agenda-time">{occurrenceTime(task) || "Весь день"}</span>
+                  <span className="agenda-time">{occurrenceTimeLabel(task) || "Весь день"}</span>
                   <strong>{taskTitle(task)}</strong>
-                  <span>{labelFrom(occurrenceStatusLabels, occurrence?.status, "Запланировано")}</span>
+                  <span className="agenda-status">{labelFrom(occurrenceStatusLabels, occurrence?.status, "Запланировано")}</span>
+                  {recurrenceEnd ? <span className="agenda-subline">{recurrenceEnd}</span> : null}
                 </Link>
               );
             })}

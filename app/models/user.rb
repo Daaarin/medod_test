@@ -1,8 +1,35 @@
+# == Schema Information
+#
+# Table name: users
+#
+#  id                :bigint           not null, primary key
+#  auth_token_digest :string
+#  email             :string           not null
+#  last_name         :string           not null
+#  name              :string           not null
+#  password_digest   :string           not null
+#  password_salt     :string           not null
+#  role              :string           not null
+#  created_at        :datetime         not null
+#  updated_at        :datetime         not null
+#
+# Indexes
+#
+#  index_users_on_auth_token_digest   (auth_token_digest) UNIQUE
+#  index_users_on_email               (email) UNIQUE
+#  index_users_on_name_and_last_name  (name,last_name)
+#
 class User < ApplicationRecord
   PASSWORD_SALT_BYTES = 16
   PASSWORD_ITERATIONS = 120_000
   PASSWORD_DERIVED_KEY_LENGTH_BYTES = 32
   PASSWORD_DIGEST_ALGORITHM = "SHA256"
+  ROLE_DISPLAY_NAMES = {
+    administrator: "Администратор",
+    doctor: "Врач",
+    nurse: "Медсестра"
+  }.freeze
+  SIGNUP_ROLES = %w[doctor nurse].freeze
 
   has_many :created_tasks, class_name: "Task", foreign_key: :creator_id, inverse_of: :creator, dependent: :restrict_with_exception
   has_many :responsible_tasks, class_name: "Task", foreign_key: :responsible_id, inverse_of: :responsible, dependent: :restrict_with_exception
@@ -20,6 +47,14 @@ class User < ApplicationRecord
   validates :password_digest, :password_salt, presence: true
   validates :email, uniqueness: { case_sensitive: false }
   normalizes :email, with: ->(email) { email.to_s.strip.downcase }
+
+  def display_name
+    [ role_display_name, last_name, name ].compact.join(" ")
+  end
+
+  def role_display_name
+    ROLE_DISPLAY_NAMES.fetch(role&.to_sym, role.to_s.humanize)
+  end
 
   def password=(value)
     @password = value

@@ -1,3 +1,30 @@
+# == Schema Information
+#
+# Table name: task_events
+#
+#  id            :bigint           not null, primary key
+#  event_type    :string           not null
+#  occurred_at   :datetime         not null
+#  payload_json  :jsonb            not null
+#  created_at    :datetime         not null
+#  updated_at    :datetime         not null
+#  actor_id      :bigint           not null
+#  occurrence_id :bigint
+#  task_id       :bigint           not null
+#
+# Indexes
+#
+#  index_task_events_on_actor_id       (actor_id)
+#  index_task_events_on_event_type     (event_type)
+#  index_task_events_on_occurred_at    (occurred_at)
+#  index_task_events_on_occurrence_id  (occurrence_id)
+#  index_task_events_on_task_id        (task_id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (occurrence_id => task_occurrences.id)
+#  fk_rails_...  (task_id => tasks.id)
+#
 require "rails_helper"
 
 RSpec.describe TaskEvent, type: :model do
