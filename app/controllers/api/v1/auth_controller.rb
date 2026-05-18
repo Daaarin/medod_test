@@ -36,7 +36,9 @@ module Api
       private
 
         def register_params
-          params.permit(:email, :password, :name, :last_name, :role)
+          params.permit(:email, :password, :name, :last_name).tap do |whitelisted|
+            whitelisted[:role] = params[:role] unless params[:role] == "admin"
+          end
         end
 
         def user_payload(user)
